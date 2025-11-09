@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:journal/layouts/windows_layout.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,12 +17,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: ListView(
-        children: [
-          // for (final entry in entries)
-          //   Text(entry['date'])
-        ],
-      ),
+      home: Platform.isWindows ? WindowsLayout() : Text('Ooops')
     );
   }
 }

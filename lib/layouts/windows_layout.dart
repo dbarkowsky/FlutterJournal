@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
-
-import '../widgets/markdown_editor/markdown_block.dart';
-
+import 'package:journal/widgets/markdown_editor/markdown_editor.dart';
 
 class WindowsLayout extends StatelessWidget {
   const WindowsLayout({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final textController = TextEditingController();
     return Scaffold(
       appBar: AppBar(title: Text("Flutter Journal")),
       body: Row(
         children: [
-          Container(
+          SizedBox(
             width: 300,
             child: Column(
               children: [
@@ -22,8 +19,7 @@ class WindowsLayout extends StatelessWidget {
               Text('controls'),
             ],),
           ),
-          Expanded(child: MarkdownBlock(initialText: '# Hello World', onChanged: (text){}, onSubmittedLine: (){}, onBackspaceEmpty: (){})),
-          // Expanded(child: TextField(controller: textController, expands: true, minLines: null, maxLines: null,))
+          Expanded(child: MarkdownEditor(initialText: '## Welcome to Flutter Journal\nStart writing your journal entry here...\n- This is a markdown editor\n- You can write **bold** text\n- You can write _italic_ text\n- You can create lists\n\nEnjoy journaling!')),
         ],
       ),
     );

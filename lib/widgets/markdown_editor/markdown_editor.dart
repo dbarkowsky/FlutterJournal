@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:journal/widgets/markdown_editor/markdown_block.dart';
-
+// TODO: Markdown blocks should be clumped together when not editing
+// Only the block being edited is a TextField, others are rendered markdown
+// This would make it easier to select larger portions of text for copying, etc.
 class MarkdownEditor extends StatefulWidget {
   final String initialText;
 
@@ -39,6 +41,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,

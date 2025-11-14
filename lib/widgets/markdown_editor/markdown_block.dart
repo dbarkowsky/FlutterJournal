@@ -67,6 +67,17 @@ class MarkdownBlock extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: MarkdownBody(
               data: controller.text,
+              onTapLink: (text, href, title) => {
+                // TODO: Handle link taps
+                print('Link tapped: $text, $href, $title'),
+              },
+              // TODO: Make selection work
+              selectable: false,
+              onSelectionChanged: (text, selection, cause) {
+                print('Selection changed: $selection');
+                print(text);
+                print(cause);
+              },
               styleSheet: MarkdownStyleSheet.fromTheme(
                 Theme.of(context),
               ).copyWith(p: const TextStyle(fontSize: 16, height: 1.4)),

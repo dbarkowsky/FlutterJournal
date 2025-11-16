@@ -57,7 +57,22 @@ class JournalDB {
       // Derive AES key from password + salt
       final keyBytes = await _deriveKey(password, salt);
       final key = Key(keyBytes);
-      _iv = IV.fromLength(16); // could randomize per record
+      
+      final ivRow = await _db.query(
+        'metadata',
+        where: 'key = ?',
+        whereArgs: ['iv'],
+      );
+      if (ivRow.isEmpty) {
+        _iv = IV.fromSecureRandom(16); // Generate a random IV
+        await _db.insert('metadata', {
+          'key': 'iv',
+          'value': _iv.base64,
+        });
+      } else {
+        _iv = IV.fromBase64(ivRow.first['value'] as String);
+      }
+
       _encrypter = Encrypter(AES(key));
 
       // Create table for encrypted entries

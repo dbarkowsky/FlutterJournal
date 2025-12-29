@@ -1,57 +1,48 @@
 import 'package:flutter/material.dart';
-import 'package:super_editor/super_editor.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:journal/providers/editor_provider.dart';
+import 'package:journal/providers/db_provider.dart';
 
-class Editor extends StatefulWidget {
-  const Editor({super.key});
-
-  @override
-  State<Editor> createState() => _EditorState();
-}
-
-class _EditorState extends State<Editor> {
-  late final MutableDocument _document;
-  late final DocumentComposer _composer;
-  late final DocumentEditor _editor;
+class MarkdownEditor extends ConsumerWidget {
+  const MarkdownEditor({super.key});
 
   @override
-  void initState() {
-    super.initState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final editorState = ref.watch(editorProvider);
+    final dbState = ref.watch(dbProvider);
+    final db = dbState["db"];
+    final controller = editorState.controller;
+    final date = editorState.date;
 
-    // A MutableDocument is an in-memory Document. Create the starting
-    // content that you want your editor to display.
-    //
-    // To start with an empty document, create a MutableDocument with a
-    // single ParagraphNode that holds an empty string.
-    _document = MutableDocument(
-      nodes: [
-        ParagraphNode(
-          id: DocumentEditor.createNodeId(),
-          text: AttributedText('This is a header'),
-          metadata: {'blockType': header1Attribution},
+    ref.listen<EditorState>(editorProvider, (previous, next) {
+      if (previous?.date != next.date && db != null) {
+        final dateString = next.date.toIso8601String().split('T').first;
+        db.getEntry(dateString).then((entry) {
+          if (controller.text != entry) {
+            controller.text = entry ?? "";
+          }
+        });
+      }
+    });
+
+    return SizedBox.expand(
+      child: TextField(
+        controller: controller,
+        textAlignVertical: TextAlignVertical.top,
+        maxLines: null,
+        expands: true,
+        onChanged: (text) async {
+          if (db != null) {
+            await db.upsertEntry(date.toIso8601String().split('T').first, text);
+          }
+        },
+        decoration: const InputDecoration(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.zero),
+          ),
+          hintText: 'Write your journal entry (Markdown supported)...',
         ),
-        ParagraphNode(
-          id: DocumentEditor.createNodeId(),
-          text: AttributedText('This is the first paragraph'),
-        ),
-      ],
-    );
-
-    // A DocumentComposer holds the user's selection. Your editor will likely want
-    // to observe, and possibly change the user's selection. Therefore, you should
-    // hold onto your own DocumentComposer and pass it to your Editor.
-    _composer = DocumentComposer();
-
-    // With a MutableDocument, create an Editor, which knows how to apply changes
-    // to the MutableDocument.
-    _editor = DocumentEditor(document: _document);
-  }
-
-  @override
-  SuperEditor build(context) {
-    return SuperEditor(
-      // document: _document,
-      composer: _composer,
-      editor: _editor,
+      ),
     );
   }
 }

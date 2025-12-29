@@ -19,7 +19,7 @@ class WindowsLayout extends ConsumerWidget {
             child: Column(
               children: [
                 CalendarDatePicker(
-                  initialDate: editorState.date,
+                  initialDate: DateTime.tryParse(editorState.date),
                   firstDate: DateTime(1970),
                   lastDate: DateTime(DateTime.now().year + 5),
                   onDateChanged: (date) {

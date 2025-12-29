@@ -9,14 +9,13 @@ class MarkdownEditor extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final editorState = ref.watch(editorProvider);
-    final dbState = ref.watch(dbProvider);
-    final db = dbState["db"];
+    final db = ref.watch(dbProvider);
     final controller = editorState.controller;
     final date = editorState.date;
 
     ref.listen<EditorState>(editorProvider, (previous, next) {
-      if (previous?.date != next.date && db != null) {
-        final dateString = next.date.toIso8601String().split('T').first;
+      if (previous?.date != next.date) {
+        final dateString = next.date;
         db.getEntry(dateString).then((entry) {
           if (controller.text != entry) {
             controller.text = entry ?? "";
@@ -32,15 +31,19 @@ class MarkdownEditor extends ConsumerWidget {
         maxLines: null,
         expands: true,
         onChanged: (text) async {
-          if (db != null) {
-            await db.upsertEntry(date.toIso8601String().split('T').first, text);
+          if (text.isEmpty) {
+            // Remove entry from database.
+            await db.removeEntry(date);
+          } else {
+            await db.upsertEntry(date, text);
           }
         },
         decoration: const InputDecoration(
+          // TODO: No border on sides of window
           border: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.zero),
           ),
-          hintText: 'Write your journal entry (Markdown supported)...',
+          hintText: '...',
         ),
       ),
     );

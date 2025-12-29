@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:journal/helpers/formatters.dart';
 
 class EditorState {
-  DateTime date;
+  String date;
   final TextEditingController controller;
   EditorState({required this.date, required this.controller});
 }
@@ -13,11 +14,11 @@ class EditorStateNotifier extends Notifier<EditorState> {
   @override
   EditorState build() {
     _controller = TextEditingController();
-    return EditorState(date: DateTime.now(), controller: _controller);
+    return EditorState(date: Formatters.date(DateTime.now()), controller: _controller);
   }
 
   void setDate(DateTime date) {
-    state = EditorState(date: date, controller: state.controller);
+    state = EditorState(date: Formatters.date(date), controller: state.controller);
   }
 
   void setText(String text) {

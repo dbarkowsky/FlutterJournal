@@ -189,4 +189,9 @@ class JournalDB {
     }
     return result;
   }
+
+  Future<void> removeEntry(String date) async {
+    if (!_initialized) throw Exception('Database not initialized');
+    await _db.delete('entries', where: 'date = ?', whereArgs: [date]);
+  }
 }

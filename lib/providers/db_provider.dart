@@ -3,16 +3,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/sqlite/database.dart';
 
-final dbProvider = NotifierProvider(DatabaseProvider.new);
+final dbProvider = AsyncNotifierProvider<DatabaseProvider, JournalDB>(DatabaseProvider.new);
 
-class DatabaseProvider extends Notifier<JournalDB> {
+class DatabaseProvider extends AsyncNotifier<JournalDB> {
   @override
-  JournalDB build() {
-        // Initialize your database here
-    JournalDB db = JournalDB();
-    db.init('temp_password').then((r) {
-      db.upsertEntry('2025-11-16', 'oh hello');
-    }); // TODO: Handle password input
+  Future<JournalDB> build() async {
+    final db = JournalDB();
+    await db.init('temp_password');
+    // Optionally add a test entry
+    // await db.upsertEntry('2025-11-16', 'oh hello');
     return db;
   }
 }

@@ -181,7 +181,7 @@ class JournalDB {
   // Get all entries, decrypted and sorted by date descending
   Future<Map<String, String>> getAllEntries() async {
     if (!_initialized) throw Exception('Database not initialized');
-    final rows = await _db.query('entries', orderBy: 'date DESC');
+    final rows = await _db.query('entries', orderBy: 'date ASC');
     final result = <String, String>{};
     for (var r in rows) {
       final encrypted = Encrypted.fromBase64(r['content'] as String);

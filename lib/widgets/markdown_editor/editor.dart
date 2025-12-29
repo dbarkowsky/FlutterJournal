@@ -9,43 +9,42 @@ class MarkdownEditor extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final editorState = ref.watch(editorProvider);
-    final db = ref.watch(dbProvider);
+    final dbAsync = ref.watch(dbProvider);
     final controller = editorState.controller;
     final date = editorState.date;
 
-    ref.listen<EditorState>(editorProvider, (previous, next) {
-      if (previous?.date != next.date) {
-        final dateString = next.date;
-        db.getEntry(dateString).then((entry) {
-          if (controller.text != entry) {
-            controller.text = entry ?? "";
+    return dbAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, st) => Center(child: Text('DB Error: $e')),
+      data: (db) {
+        ref.listen<EditorState>(editorProvider, (previous, next) {
+          if (previous?.date != next.date) {
+            final dateString = next.date;
+            db.getEntry(dateString).then((entry) {
+              if (controller.text != entry) {
+                controller.text = entry ?? "";
+              }
+            });
           }
         });
-      }
-    });
-
-    return SizedBox.expand(
-      child: TextField(
-        controller: controller,
-        textAlignVertical: TextAlignVertical.top,
-        maxLines: null,
-        expands: true,
-        onChanged: (text) async {
-          if (text.isEmpty) {
-            // Remove entry from database.
-            await db.removeEntry(date);
-          } else {
-            await db.upsertEntry(date, text);
-          }
-        },
-        decoration: const InputDecoration(
-          // TODO: No border on sides of window
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.zero),
+        return SizedBox.expand(
+          child: TextField(
+            controller: controller,
+            textAlignVertical: TextAlignVertical.top,
+            maxLines: null,
+            expands: true,
+            onChanged: (text) async {
+              await db.upsertEntry(date, text);
+            },
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.zero),
+              ),
+              hintText: '...',
+            ),
           ),
-          hintText: '...',
-        ),
-      ),
+        );
+      },
     );
   }
 }

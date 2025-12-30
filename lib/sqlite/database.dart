@@ -190,6 +190,23 @@ class JournalDB {
     return result;
   }
 
+    // Search for entries where decrypted content contains the query string (case-insensitive)
+  Future<List<Map<String, dynamic>>> searchEntries(String query) async {
+    if (!_initialized) throw Exception('Database not initialized');
+    final rows = await _db.query('entries', orderBy: 'date DESC');
+    final List<Map<String, dynamic>> results = [];
+    final lowerQuery = query.toLowerCase();
+    for (var r in rows) {
+      final date = r['date'] as String;
+      final encrypted = Encrypted.fromBase64(r['content'] as String);
+      final content = _encrypter.decrypt(encrypted, iv: _iv);
+      if (content.toLowerCase().contains(lowerQuery)) {
+        results.add({'date': date, 'content': content});
+      }
+    }
+    return results;
+  }
+
   Future<void> removeEntry(String date) async {
     if (!_initialized) throw Exception('Database not initialized');
     await _db.delete('entries', where: 'date = ?', whereArgs: [date]);

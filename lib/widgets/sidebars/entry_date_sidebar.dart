@@ -9,28 +9,25 @@ class EntryDateSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 300,
-      child: Column(
-        children: [
-          Consumer(
-            builder: (context, ref, _) {
-              return CalendarDatePicker(
-                initialDate: DateTime.now(),
-                firstDate: DateTime(1970),
-                lastDate: DateTime(DateTime.now().year + 5),
-                onDateChanged: (date) {
-                  ref.read(editorProvider.notifier).setDate(date);
-                },
-              );
-            },
-          ),
-          const Expanded(
-            child: EntryDateAccordionList(),
-          ),
-          const Text('controls'),
-        ],
-      ),
+    return Column(
+      children: [
+        Consumer(
+          builder: (context, ref, _) {
+            return CalendarDatePicker(
+              initialDate: DateTime.now(),
+              firstDate: DateTime(1970),
+              lastDate: DateTime(DateTime.now().year + 5),
+              onDateChanged: (date) {
+                ref.read(editorProvider.notifier).setDate(date);
+              },
+            );
+          },
+        ),
+        const Expanded(
+          child: EntryDateAccordionList(),
+        ),
+        const Text('controls'),
+      ],
     );
   }
 }

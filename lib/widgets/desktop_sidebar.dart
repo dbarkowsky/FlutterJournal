@@ -10,6 +10,10 @@ class DesktopSidebar extends StatefulWidget {
 
 class _DesktopSidebarState extends State<DesktopSidebar> {
   int _selectedIndex = 0;
+  double _sidebarWidth = 300;
+  static const double _minWidth = 300;
+  static const double _maxWidth = 600;
+  bool _dragging = false;
 
   @override
   Widget build(BuildContext context) {
@@ -25,33 +29,63 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
         sidebarContent = const SizedBox.shrink();
     }
 
-    return SizedBox(
-      width: 300,
-      child: Column(
-        children: [
-          Expanded(child: sidebarContent),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.edit_calendar,
-                      color: _selectedIndex == 0 ? Colors.blue : null),
-                  tooltip: 'Journal Entries',
-                  onPressed: () => setState(() => _selectedIndex = 0),
+    return Row(
+      children: [
+        SizedBox(
+          width: _sidebarWidth,
+          child: Column(
+            children: [
+              Expanded(child: sidebarContent),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.menu_book,
+                          color: _selectedIndex == 0 ? Colors.blue : null),
+                      tooltip: 'Journal Entries',
+                      onPressed: () => setState(() => _selectedIndex = 0),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.insert_drive_file,
+                          color: _selectedIndex == 1 ? Colors.blue : null),
+                      tooltip: 'Blank Page',
+                      onPressed: () => setState(() => _selectedIndex = 1),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: Icon(Icons.search,
-                      color: _selectedIndex == 1 ? Colors.blue : null),
-                  tooltip: 'Blank Page',
-                  onPressed: () => setState(() => _selectedIndex = 1),
-                ),
-              ],
+              ),
+            ],
+          ),
+        ),
+        MouseRegion(
+          cursor: SystemMouseCursors.resizeColumn,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragStart: (_) {
+              setState(() => _dragging = true);
+            },
+            onHorizontalDragUpdate: (details) {
+              setState(() {
+                _sidebarWidth = (_sidebarWidth + details.delta.dx)
+                    .clamp(_minWidth, _maxWidth);
+              });
+            },
+            onHorizontalDragEnd: (_) {
+              setState(() => _dragging = false);
+            },
+            child: Container(
+              width: 8,
+              height: double.infinity,
+              color: _dragging
+                  ? Colors.blue.withOpacity(0.2)
+                  : Colors.transparent,
+              child: const SizedBox.expand(),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

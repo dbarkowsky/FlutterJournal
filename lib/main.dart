@@ -18,7 +18,9 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: Platform.isWindows ? WindowsLayout() : Text('Ooops')
+      home: Platform.isWindows || Platform.isLinux || Platform.isMacOS
+          ? DesktopLayout()
+          : Text('Ooops'),
     );
   }
 }

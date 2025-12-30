@@ -42,13 +42,13 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.menu_book,
+                      icon: Icon(Icons.edit_calendar,
                           color: _selectedIndex == 0 ? Colors.blue : null),
                       tooltip: 'Journal Entries',
                       onPressed: () => setState(() => _selectedIndex = 0),
                     ),
                     IconButton(
-                      icon: Icon(Icons.insert_drive_file,
+                      icon: Icon(Icons.search,
                           color: _selectedIndex == 1 ? Colors.blue : null),
                       tooltip: 'Blank Page',
                       onPressed: () => setState(() => _selectedIndex = 1),

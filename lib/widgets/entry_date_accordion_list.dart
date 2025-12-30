@@ -84,6 +84,7 @@ class _EntryDateAccordionListState extends ConsumerState<EntryDateAccordionList>
                                           return ListTile(
                                             title: Text(DateFormat('d - EEEE').format(date)),
                                             contentPadding: const EdgeInsets.only(left: 40),
+                                            dense: true,
                                             onTap: () {
                                               // Set the date in the editorProvider
                                               ref.read(editorProvider.notifier).setDate(date);

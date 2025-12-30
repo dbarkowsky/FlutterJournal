@@ -26,7 +26,6 @@ class EntryDateSidebar extends StatelessWidget {
         const Expanded(
           child: EntryDateAccordionList(),
         ),
-        const Text('controls'),
       ],
     );
   }

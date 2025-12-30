@@ -40,7 +40,6 @@ dependencies:
   cryptography: ^2.7.0
   sqflite_common_ffi: ^2.3.6
   flutter_markdown_plus: ^1.0.5
-  super_editor: ^0.2.7
   flutter_riverpod: ^3.0.3
   intl: ^0.18.1
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:journal/providers/editor_provider.dart';
 import 'package:journal/widgets/markdown_editor/editor.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:journal/widgets/entry_date_accordion_list.dart';
 
 
 class WindowsLayout extends ConsumerWidget {
@@ -26,8 +27,9 @@ class WindowsLayout extends ConsumerWidget {
                     ref.read(editorProvider.notifier).setDate(date);
                   },
                 ),
-                const Spacer(),
-                const Text('controls'),
+                Expanded(
+                  child: EntryDateAccordionList(),
+                ),
               ],
             ),
           ),

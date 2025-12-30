@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:journal/widgets/sidebars/entry_date_sidebar.dart';
+import 'package:journal/widgets/sidebars/search_sidebar.dart';
 
 class DesktopSidebar extends StatefulWidget {
   const DesktopSidebar({super.key});
@@ -23,7 +24,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
         sidebarContent = const EntryDateSidebar();
         break;
       case 1:
-        sidebarContent = const Center(child: Text('Blank Page'));
+        sidebarContent = const SearchSidebar();
         break;
       default:
         sidebarContent = const SizedBox.shrink();

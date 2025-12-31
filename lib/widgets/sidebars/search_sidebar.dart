@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/providers/db_provider.dart';
+import 'package:journal/providers/editor_provider.dart';
 
 class SearchSidebar extends ConsumerStatefulWidget {
   const SearchSidebar({super.key});
@@ -80,6 +81,10 @@ class _SearchSidebarState extends ConsumerState<SearchSidebar> {
                   return ListTile(
                     title: Text(entry['date']!),
                     subtitle: Text(entry['content'] ?? ''),
+                    onTap: () {
+                      final String date = entry['date'];
+                      ref.read(editorProvider.notifier).setDate(DateTime.parse(date));
+                    },
                   );
                 },
               ),

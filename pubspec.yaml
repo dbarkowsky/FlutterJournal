@@ -41,7 +41,9 @@ dependencies:
   sqflite_common_ffi: ^2.3.6
   flutter_markdown_plus: ^1.0.5
   flutter_riverpod: ^3.0.3
-  intl: ^0.18.1
+  intl: ^0.20.2
+  table_calendar: ^3.0.9
+  month_picker_dialog: ^6.7.0
 
 dev_dependencies:
   flutter_test:

@@ -57,7 +57,7 @@ class JournalDB {
       // Derive AES key from password + salt
       final keyBytes = await _deriveKey(password, salt);
       final key = Key(keyBytes);
-      
+
       final ivRow = await _db.query(
         'metadata',
         where: 'key = ?',
@@ -65,10 +65,7 @@ class JournalDB {
       );
       if (ivRow.isEmpty) {
         _iv = IV.fromSecureRandom(16); // Generate a random IV
-        await _db.insert('metadata', {
-          'key': 'iv',
-          'value': _iv.base64,
-        });
+        await _db.insert('metadata', {'key': 'iv', 'value': _iv.base64});
       } else {
         _iv = IV.fromBase64(ivRow.first['value'] as String);
       }
@@ -90,6 +87,7 @@ class JournalDB {
         whereArgs: ['marker'],
       );
 
+      // TODO: Does this bypass the password if we manually delete the marker entry?
       if (markerRow.isEmpty) {
         // First-time setup: store encrypted marker
         final encryptedMarker = _encryptValue('verified');
@@ -104,14 +102,18 @@ class JournalDB {
           final decryptedMarker = _decryptValue(encryptedMarker);
           if (decryptedMarker != 'verified') {
             throw Exception('Invalid password (marker mismatch)');
+          } else {
+            _initialized = true;
           }
         } catch (e) {
           throw Exception('Invalid password (decryption failed)');
         }
       }
-
-      _initialized = true;
     });
+  }
+
+  bool isInitialized(){
+    return _initialized;
   }
 
   // Derive a 256-bit AES key from a password and salt
@@ -190,7 +192,7 @@ class JournalDB {
     return result;
   }
 
-    // Search for entries where decrypted content contains the query string (case-insensitive)
+  // Search for entries where decrypted content contains the query string (case-insensitive)
   Future<List<Map<String, dynamic>>> searchEntries(String query) async {
     if (!_initialized) throw Exception('Database not initialized');
     final rows = await _db.query('entries', orderBy: 'date DESC');

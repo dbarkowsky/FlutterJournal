@@ -1,8 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:journal/layouts/windows_layout.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:journal/widgets/password_page.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -18,9 +16,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: Platform.isWindows || Platform.isLinux || Platform.isMacOS
-          ? DesktopLayout()
-          : Text('Ooops'),
+      home: PasswordPage(),
     );
   }
 }

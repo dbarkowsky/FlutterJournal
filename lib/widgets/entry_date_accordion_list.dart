@@ -12,8 +12,8 @@ class EntryDateAccordionList extends ConsumerStatefulWidget {
 }
 
 class _EntryDateAccordionListState extends ConsumerState<EntryDateAccordionList> {
-  Map<int, bool> _expandedYears = {};
-  Map<String, bool> _expandedMonths = {};
+  final Map<int, bool> _expandedYears = {};
+  final Map<String, bool> _expandedMonths = {};
 
   @override
   Widget build(BuildContext context) {

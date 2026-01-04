@@ -23,10 +23,8 @@ class DatabaseProvider extends AsyncNotifier<JournalDB> {
       final db = JournalDB();
       await db.init(password);
       if (db.isInitialized()) {
-        print('initialized');
         state = AsyncValue.data(db);
       } else {
-        print('not initialized');
         state = AsyncValue.error('Invalid password', StackTrace.current);
       }
     } catch (e, st) {

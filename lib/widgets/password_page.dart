@@ -19,7 +19,6 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
   bool _loading = false;
 
   Future<void> _tryPassword(String password) async {
-    print('password $password');
     if (password.isEmpty) {
       setState(() {
         _loading = false;
@@ -33,7 +32,6 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
     });
     final notifier = ref.read(dbProvider.notifier);
     await notifier.initWithPassword(password);
-    print(ref.read(dbProvider).value?.isInitialized());
     // If the provider is not loading after submit, reset loading state (safety net)
     final state = ref.read(dbProvider);
     if (!state.isLoading) {

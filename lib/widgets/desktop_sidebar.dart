@@ -45,13 +45,13 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                     IconButton(
                       icon: Icon(Icons.edit_calendar,
                           color: _selectedIndex == 0 ? Colors.blue : null),
-                      tooltip: 'Journal Entries',
+                      tooltip: 'Dates',
                       onPressed: () => setState(() => _selectedIndex = 0),
                     ),
                     IconButton(
                       icon: Icon(Icons.search,
                           color: _selectedIndex == 1 ? Colors.blue : null),
-                      tooltip: 'Blank Page',
+                      tooltip: 'Search',
                       onPressed: () => setState(() => _selectedIndex = 1),
                     ),
                   ],
@@ -80,7 +80,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
               width: 8,
               height: double.infinity,
               color: _dragging
-                  ? Colors.blue.withOpacity(0.2)
+                  ? Colors.blue.withValues(alpha: 0.2)
                   : Colors.transparent,
               child: const SizedBox.expand(),
             ),

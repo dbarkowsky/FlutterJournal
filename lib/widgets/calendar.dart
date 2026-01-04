@@ -74,6 +74,19 @@ class Calendar extends StatelessWidget {
                       return null;
                     },
                     todayBuilder: (context, day, focusedDay) {
+                      final hasEntry = entryDates.contains(
+                        Formatters.date(day),
+                      );
+                      if (hasEntry){
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Colors.lightBlueAccent.withAlpha(70),
+                            border: Border.all(color: Colors.black),
+                            shape: BoxShape.rectangle,
+                          ),
+                          child: Center(child: Text('${day.day}')),
+                        );
+                      }
                       return Container(
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.black),

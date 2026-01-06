@@ -18,15 +18,18 @@ class JournalDB {
   late IV _iv;
   bool _initialized = false;
 
-  Future<void> init(String password) async {
+  Future<void> init(String password, {String? dbPath}) async {
     if (_initialized) return;
 
     sqfliteFfiInit();
     final dbFactory = databaseFactoryFfi;
 
-    final io.Directory dir = await getApplicationDocumentsDirectory();
-    final String dbPath = p.join(dir.path, 'databases', 'journal.db');
-    await dbFactory.openDatabase(dbPath).then((db) async {
+    String resolvedDbPath = dbPath ?? '';
+    if (resolvedDbPath.isEmpty) {
+      final io.Directory dir = await getApplicationDocumentsDirectory();
+      resolvedDbPath = p.join(dir.path, 'databases', 'journal.db');
+    }
+    await dbFactory.openDatabase(resolvedDbPath).then((db) async {
       _db = db;
 
       // Ensure metadata table exists

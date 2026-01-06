@@ -7,21 +7,25 @@ final dbProvider = AsyncNotifierProvider<DatabaseProvider, JournalDB>(DatabasePr
 
 class DatabaseProvider extends AsyncNotifier<JournalDB> {
   String? _password;
+  String? _dbPath;
 
   @override
   Future<JournalDB> build() async {
     if (_password == null) throw Exception('No password provided');
     final db = JournalDB();
-    await db.init(_password!);
+    await db.init(_password!, dbPath: _dbPath);
     return db;
   }
 
-  Future<void> initWithPassword(String password) async {
+  Future<void> initWithPassword(String password, {String? dbPath}) async {
     _password = password;
+    if (dbPath != null) {
+      _dbPath = dbPath;
+    }
     state = const AsyncValue.loading();
     try {
       final db = JournalDB();
-      await db.init(password);
+      await db.init(password, dbPath: _dbPath);
       if (db.isInitialized()) {
         state = AsyncValue.data(db);
       } else {

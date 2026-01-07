@@ -45,6 +45,7 @@ dependencies:
   table_calendar: ^3.0.9
   month_picker_dialog: ^6.7.0
   file_picker: ^10.3.8
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:

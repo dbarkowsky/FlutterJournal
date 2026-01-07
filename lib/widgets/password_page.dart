@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:journal/providers/db_provider.dart';
 import 'package:journal/sqlite/database.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:journal/helpers/last_db_prefs.dart';
 
 class PasswordPage extends ConsumerStatefulWidget {
   const PasswordPage({super.key});
@@ -20,6 +21,20 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
   bool _loading = false;
   String? _dbPath;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadLastDbPath();
+  }
+
+  Future<void> _loadLastDbPath() async {
+    final path = await LastDatabasePrefs.loadPath();
+    if (path != null) {
+      setState(() {
+        _dbPath = path;
+      });
+    }
+  }
   Future<void> _tryPassword(String password) async {
     if (password.isEmpty) {
       setState(() {
@@ -55,6 +70,7 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
         _dbPath = result.files.single.path;
         _error = null;
       });
+      await LastDatabasePrefs.savePath(_dbPath!);
     }
   }
 
@@ -92,21 +108,25 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
             children: [
               const Text('Enter Journal Password', style: TextStyle(fontSize: 22)),
               const SizedBox(height: 24),
-              if (_dbPath != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Text(
+                  child: _dbPath != null ? Text(
                     'Selected: ${_dbPath}',
                     style: const TextStyle(fontSize: 12, color: Colors.green),
+                    overflow: TextOverflow.ellipsis,
+                  ) : Text(
+                    'Open or create a journal database',
+                    style: const TextStyle(fontSize: 12, color: Colors.red),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
               TextField(
                 controller: _controller,
                 obscureText: _obscure,
+                enabled: _dbPath != null,
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  errorText: _error,
+                  errorText: _dbPath != null ?_error : null,
                   suffixIcon: IconButton(
                     icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                     onPressed: () => setState(() => _obscure = !_obscure),
@@ -115,16 +135,35 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
                 onSubmitted: (val) => _tryPassword(val),
               ),
               const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                      onPressed: _dbPath != null ? () => _tryPassword(_controller.text) : null,
+                      child: const Text('Unlock'),
+                    ),
+              ),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   ElevatedButton(
-                    onPressed: _chooseDatabase,
-                    child: const Text('Choose Database'),
+                    onPressed: (){},
+                    child: const Text('New'),
                   ),
                   ElevatedButton(
-                    onPressed: () => _tryPassword(_controller.text),
-                    child: const Text('Unlock'),
+                    onPressed: _chooseDatabase,
+                    child: const Text('Open'),
+                  ),
+                  
+                  // TODO: Remove this testing button
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _dbPath = null;
+                      });
+                      },
+                    child: const Text('clear'),
                   ),
                 ],
               ),

@@ -6,6 +6,7 @@ import 'package:journal/providers/db_provider.dart';
 import 'package:journal/sqlite/database.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:journal/helpers/last_db_prefs.dart';
+import 'dart:io';
 
 class PasswordPage extends ConsumerStatefulWidget {
   const PasswordPage({super.key});
@@ -17,9 +18,11 @@ class PasswordPage extends ConsumerStatefulWidget {
 class _PasswordPageState extends ConsumerState<PasswordPage> {
   final _controller = TextEditingController();
   bool _obscure = true;
-  String? _error;
+  String? _passwordError;
+  Text? _text;
   bool _loading = false;
   String? _dbPath;
+  bool _dbFileExists = false;
 
   @override
   void initState() {
@@ -30,22 +33,47 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
   Future<void> _loadLastDbPath() async {
     final path = await LastDatabasePrefs.loadPath();
     if (path != null) {
+      final exists = await File(path).exists();
       setState(() {
-        _dbPath = path;
+        _dbPath = exists ? path : null;
+        _dbFileExists = exists;
+        if (exists) {
+          _text = Text(
+            'Selected: $_dbPath',
+            style: const TextStyle(fontSize: 12, color: Colors.green),
+            overflow: TextOverflow.ellipsis,
+          );
+        } else {
+          _text = Text(
+            'Previous database file not found',
+            style: const TextStyle(fontSize: 12, color: Colors.red),
+            overflow: TextOverflow.ellipsis,
+          );
+        }
+      });
+    } else {
+      setState(() {
+        _dbFileExists = false;
+        _text = Text(
+          'Open or create a journal database',
+          style: const TextStyle(fontSize: 12, color: Colors.red),
+          overflow: TextOverflow.ellipsis,
+        );
       });
     }
   }
+
   Future<void> _tryPassword(String password) async {
     if (password.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Password cannot be empty';
+        _passwordError = 'Password cannot be empty';
       });
       return;
     }
     setState(() {
       _loading = true;
-      _error = null;
+      _passwordError = null;
     });
     final notifier = ref.read(dbProvider.notifier);
     await notifier.initWithPassword(password, dbPath: _dbPath);
@@ -66,11 +94,26 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
       allowedExtensions: ['db'],
     );
     if (result != null && result.files.single.path != null) {
+      final path = result.files.single.path!;
+      final exists = await File(path).exists();
       setState(() {
-        _dbPath = result.files.single.path;
-        _error = null;
+        _dbPath = exists ? path : null;
+        _dbFileExists = exists;
+        _text = exists
+            ? Text(
+                'Selected: $_dbPath',
+                style: const TextStyle(fontSize: 12, color: Colors.green),
+                overflow: TextOverflow.ellipsis,
+              )
+            : Text(
+                'Selected file does not exist.',
+                style: const TextStyle(fontSize: 12, color: Colors.red),
+                overflow: TextOverflow.ellipsis,
+              );
       });
-      await LastDatabasePrefs.savePath(_dbPath!);
+      if (exists) {
+        await LastDatabasePrefs.savePath(_dbPath!);
+      }
     }
   }
 
@@ -88,16 +131,14 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
         error: (e, st) {
           setState(() {
             _loading = false;
-            _error = 'Invalid password';
+            _passwordError = 'Invalid password';
             _controller.clear();
           });
         },
       );
     });
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
       body: Center(
@@ -106,29 +147,28 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Enter Journal Password', style: TextStyle(fontSize: 22)),
+              const Text(
+                'Enter Journal Password',
+                style: TextStyle(fontSize: 22),
+              ),
               const SizedBox(height: 24),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: _dbPath != null ? Text(
-                    'Selected: ${_dbPath}',
-                    style: const TextStyle(fontSize: 12, color: Colors.green),
-                    overflow: TextOverflow.ellipsis,
-                  ) : Text(
-                    'Open or create a journal database',
-                    style: const TextStyle(fontSize: 12, color: Colors.red),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: _text,
+              ),
               TextField(
                 controller: _controller,
                 obscureText: _obscure,
-                enabled: _dbPath != null,
+                enabled: _dbFileExists && _dbPath != null,
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  errorText: _dbPath != null ?_error : null,
+                  errorText: _dbFileExists && _dbPath != null
+                      ? _passwordError
+                      : null,
                   suffixIcon: IconButton(
-                    icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                    icon: Icon(
+                      _obscure ? Icons.visibility : Icons.visibility_off,
+                    ),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   ),
                 ),
@@ -139,31 +179,23 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                      onPressed: _dbPath != null ? () => _tryPassword(_controller.text) : null,
-                      child: const Text('Unlock'),
-                    ),
+                  onPressed: _dbFileExists && _dbPath != null
+                      ? () => _tryPassword(_controller.text)
+                      : null,
+                  child: const Text('Unlock'),
+                ),
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  ElevatedButton(
-                    onPressed: (){},
-                    child: const Text('New'),
-                  ),
-                  ElevatedButton(
-                    onPressed: _chooseDatabase,
-                    child: const Text('Open'),
-                  ),
-                  
-                  // TODO: Remove this testing button
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _dbPath = null;
-                      });
-                      },
-                    child: const Text('clear'),
+                  SizedBox( width: 100, child: ElevatedButton(onPressed: () {}, child: const Text('New'))),
+                  SizedBox(
+                    width: 100,
+                    child: ElevatedButton(
+                      onPressed: _chooseDatabase,
+                      child: const Text('Open'),
+                    ),
                   ),
                 ],
               ),

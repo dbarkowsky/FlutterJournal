@@ -2,6 +2,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/sqlite/database.dart';
+import 'dart:async';
 
 final dbProvider = AsyncNotifierProvider<DatabaseProvider, JournalDB>(DatabaseProvider.new);
 
@@ -11,7 +12,11 @@ class DatabaseProvider extends AsyncNotifier<JournalDB> {
 
   @override
   Future<JournalDB> build() async {
-    if (_password == null) throw Exception('No password provided');
+    // Guard: wait forever if no password is set, so provider never errors or completes.
+    if (_password == null) {
+      final completer = Completer<JournalDB>();
+      return completer.future;
+    }
     final db = JournalDB();
     await db.init(_password!, dbPath: _dbPath);
     return db;

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/sqlite/database.dart';
 
+// Use this provider when you need to access the entries.
+// It will cause consumers using it to reload when the entries change.
 class EntriesNotifier extends Notifier<AsyncValue<Map<String, String>>> {
   late JournalDB db;
 
@@ -41,13 +43,8 @@ class EntriesNotifier extends Notifier<AsyncValue<Map<String, String>>> {
   }
 }
 
-final entriesProvider = NotifierProvider<EntriesNotifier, AsyncValue<Map<String, String>>>(EntriesNotifier.new);
-
-
-
-
-final dbProvider = AsyncNotifierProvider<DatabaseProvider, JournalDB>(DatabaseProvider.new);
-
+// Use this provider to init and access the database as a whole.
+// It will not refresh the UI when values inside the database change.
 class DatabaseProvider extends AsyncNotifier<JournalDB> {
   String? _password;
   String? _dbPath;
@@ -104,3 +101,7 @@ class DatabaseProvider extends AsyncNotifier<JournalDB> {
     }
   }
 }
+
+final entriesProvider = NotifierProvider<EntriesNotifier, AsyncValue<Map<String, String>>>(EntriesNotifier.new);
+
+final dbProvider = AsyncNotifierProvider<DatabaseProvider, JournalDB>(DatabaseProvider.new);

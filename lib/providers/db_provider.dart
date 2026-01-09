@@ -1,8 +1,45 @@
-
-
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/sqlite/database.dart';
-import 'dart:async';
+
+class EntriesNotifier extends Notifier<AsyncValue<Map<String, String>>> {
+  late JournalDB db;
+
+  @override
+  AsyncValue<Map<String, String>> build() {
+    final dbAsync = ref.watch(dbProvider);
+    db = dbAsync.maybeWhen(
+      data: (db) => db,
+      orElse: () => JournalDB(),
+    );
+    _loadEntries();
+    return const AsyncValue.loading();
+  }
+
+  Future<void> _loadEntries() async {
+    try {
+      final entries = await db.getAllEntries();
+      state = AsyncValue.data(entries);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> addOrUpdateEntry(String date, String content) async {
+    await db.upsertEntry(date, content);
+    await _loadEntries();
+  }
+
+  Future<void> removeEntry(String date) async {
+    await db.removeEntry(date);
+    await _loadEntries();
+  }
+}
+
+final entriesProvider = NotifierProvider<EntriesNotifier, AsyncValue<Map<String, String>>>(EntriesNotifier.new);
+
+
+
 
 final dbProvider = AsyncNotifierProvider<DatabaseProvider, JournalDB>(DatabaseProvider.new);
 

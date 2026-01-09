@@ -34,7 +34,11 @@ class MarkdownEditor extends ConsumerWidget {
             maxLines: null,
             expands: true,
             onChanged: (text) async {
-              await db.upsertEntry(date, text);
+              if (text.isEmpty){
+                await ref.read(entriesProvider.notifier).removeEntry(date);
+                return;
+              }
+              await ref.read(entriesProvider.notifier).addOrUpdateEntry(date, text);
             },
             decoration: const InputDecoration(
               border: OutlineInputBorder(

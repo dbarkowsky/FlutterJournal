@@ -27,6 +27,14 @@ class EntriesNotifier extends Notifier<AsyncValue<Map<String, String>>> {
     }
   }
 
+  Future<String> getEntryContent(String date) async {
+    final content = await db.getEntry(date);
+    if (content == null){
+      return '';
+    }
+    return content;
+  }
+
   Future<void> addOrUpdateEntry(String date, String content) async {
     await db.upsertEntry(date, content);
     await _loadEntries();

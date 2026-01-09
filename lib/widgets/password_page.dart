@@ -37,6 +37,7 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            final validFileName = RegExp(r'^[\w\- ]+$'); // No periods allowed
             return AlertDialog(
               title: const Text('Create New Journal Database'),
               content: SizedBox(
@@ -44,7 +45,6 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // TODO: Default folder path
                     TextField(
                       controller: folderController,
                       readOnly: true,
@@ -64,7 +64,18 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: fileNameController,
-                      decoration: const InputDecoration(labelText: 'File Name (no extension)'),
+                      decoration: const InputDecoration(labelText: 'Journal Name'),
+                      onChanged: (val) {
+                        if (val.isEmpty || !validFileName.hasMatch(val)) {
+                          setState(() => errorText = 'Journal name required. Some special characters not allowed.');
+                        } else if (val.contains('.')) {
+                          setState(() => errorText = 'Periods are not allowed in the journal name.');
+                        } else {
+                          setState(() {
+                             errorText = null;
+                          });
+                        }
+                      },
                     ),
                     const SizedBox(height: 8),
                     TextField(

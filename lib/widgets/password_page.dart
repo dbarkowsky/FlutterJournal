@@ -16,6 +16,135 @@ class PasswordPage extends ConsumerStatefulWidget {
 }
 
 class _PasswordPageState extends ConsumerState<PasswordPage> {
+  Future<void> _showCreateDatabaseDialog() async {
+    final folderController = TextEditingController();
+    final fileNameController = TextEditingController(text: "journal");
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+    String? errorText;
+    bool obscure1 = true;
+    bool obscure2 = true;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Create New Journal Database'),
+              content: SizedBox(
+                width: 350,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // TODO: Default folder path
+                    TextField(
+                      controller: folderController,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: 'Folder',
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.folder_open),
+                          onPressed: () async {
+                            String? folder = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Select Folder');
+                            if (folder != null) {
+                              setState(() => folderController.text = folder);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: fileNameController,
+                      decoration: const InputDecoration(labelText: 'File Name (no extension)'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: passwordController,
+                      obscureText: obscure1,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        suffixIcon: IconButton(
+                          icon: Icon(obscure1 ? Icons.visibility : Icons.visibility_off),
+                          onPressed: () => setState(() => obscure1 = !obscure1),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: confirmController,
+                      obscureText: obscure2,
+                      decoration: InputDecoration(
+                        labelText: 'Confirm Password',
+                        suffixIcon: IconButton(
+                          icon: Icon(obscure2 ? Icons.visibility : Icons.visibility_off),
+                          onPressed: () => setState(() => obscure2 = !obscure2),
+                        ),
+                      ),
+                    ),
+                    if (errorText != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(errorText ?? '', style: const TextStyle(color: Colors.red)),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final folder = folderController.text.trim();
+                    final fileName = fileNameController.text.trim();
+                    final password = passwordController.text;
+                    final confirm = confirmController.text;
+                    final validFileName = RegExp(r'^[\w\-. ]+$');
+                    if (folder.isEmpty) {
+                      setState(() => errorText = 'Please select a folder.');
+                      return;
+                    }
+                    if (fileName.isEmpty || !validFileName.hasMatch(fileName)) {
+                      setState(() => errorText = 'Invalid file name.');
+                      return;
+                    }
+                    if (password.isEmpty) {
+                      setState(() => errorText = 'Password cannot be empty.');
+                      return;
+                    }
+                    if (password != confirm) {
+                      setState(() => errorText = 'Passwords do not match.');
+                      return;
+                    }
+                    final dbPath = '$folder${Platform.pathSeparator}$fileName.db';
+                    final file = File(dbPath);
+                    if (await file.exists()) {
+                      setState(() => errorText = 'File already exists.');
+                      return;
+                    }
+                    // Create DB
+                    final notifier = ref.read(dbProvider.notifier);
+                    await notifier.createDatabase(password, dbPath: dbPath);
+                    await LastDatabasePrefs.savePath(dbPath);
+                    setState(() {
+                      _dbPath = dbPath;
+                      _dbFileExists = true;
+                      _text = Text('Selected: $_dbPath', style: const TextStyle(fontSize: 12, color: Colors.green), overflow: TextOverflow.ellipsis);
+                    });
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Create'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
   final _controller = TextEditingController();
   bool _obscure = true;
   String? _passwordError;
@@ -76,7 +205,7 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
       _passwordError = null;
     });
     final notifier = ref.read(dbProvider.notifier);
-    await notifier.initWithPassword(password, dbPath: _dbPath);
+    await notifier.openDatabaseWithPassword(password, dbPath: _dbPath);
     // If the provider is not loading after submit, reset loading state (safety net)
     final state = ref.read(dbProvider);
     if (!state.isLoading) {
@@ -189,7 +318,13 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  SizedBox( width: 100, child: ElevatedButton(onPressed: () {}, child: const Text('New'))),
+                  SizedBox(
+                    width: 100,
+                    child: ElevatedButton(
+                      onPressed: _showCreateDatabaseDialog,
+                      child: const Text('New'),
+                    ),
+                  ),
                   SizedBox(
                     width: 100,
                     child: ElevatedButton(

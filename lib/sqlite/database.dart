@@ -18,7 +18,7 @@ class JournalDB {
   late IV _iv;
   bool _initialized = false;
 
-  Future<void> init(String password, {String? dbPath}) async {
+  Future<void> createNewDatabase(String password, {String? dbPath}) async {
     if (_initialized) return;
 
     sqfliteFfiInit();
@@ -29,90 +29,103 @@ class JournalDB {
       final io.Directory dir = await getApplicationDocumentsDirectory();
       resolvedDbPath = p.join(dir.path, 'databases', 'journal.db');
     }
-    await dbFactory.openDatabase(resolvedDbPath).then((db) async {
-      _db = db;
 
-      // Ensure metadata table exists
-      await _db.execute('''
-        CREATE TABLE IF NOT EXISTS metadata (
-          key TEXT PRIMARY KEY,
-          value TEXT
-        )
-      ''');
+    _db = await dbFactory.openDatabase(resolvedDbPath);
 
-      // Get or generate salt
-      Uint8List salt;
-      final saltRow = await _db.query(
-        'metadata',
-        where: 'key = ?',
-        whereArgs: ['salt'],
-      );
-      if (saltRow.isEmpty) {
-        salt = _generateSalt();
-        await _db.insert('metadata', {
-          'key': 'salt',
-          'value': base64Encode(salt),
-        });
-      } else {
-        salt = base64Decode(saltRow.first['value'] as String);
-      }
+    // New database: create tables and metadata
+    await _db.execute('''
+      CREATE TABLE IF NOT EXISTS metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    ''');
+    await _db.execute('''
+      CREATE TABLE IF NOT EXISTS entries (
+        date TEXT PRIMARY KEY,
+        content TEXT
+      )
+    ''');
 
-      // Derive AES key from password + salt
-      final keyBytes = await _deriveKey(password, salt);
-      final key = Key(keyBytes);
-
-      final ivRow = await _db.query(
-        'metadata',
-        where: 'key = ?',
-        whereArgs: ['iv'],
-      );
-      if (ivRow.isEmpty) {
-        _iv = IV.fromSecureRandom(16); // Generate a random IV
-        await _db.insert('metadata', {'key': 'iv', 'value': _iv.base64});
-      } else {
-        _iv = IV.fromBase64(ivRow.first['value'] as String);
-      }
-
-      _encrypter = Encrypter(AES(key));
-
-      // Create table for encrypted entries
-      await _db.execute('''
-        CREATE TABLE IF NOT EXISTS entries (
-          date TEXT PRIMARY KEY,
-          content TEXT
-        )
-      ''');
-
-      // This marker determines if the correct password was given
-      final markerRow = await _db.query(
-        'metadata',
-        where: 'key = ?',
-        whereArgs: ['marker'],
-      );
-
-      // TODO: Does this bypass the password if we manually delete the marker entry?
-      if (markerRow.isEmpty) {
-        // First-time setup: store encrypted marker
-        final encryptedMarker = _encryptValue('verified');
-        await _db.insert('metadata', {
-          'key': 'marker',
-          'value': encryptedMarker,
-        });
-      } else {
-        // Try to decrypt marker to validate password
-        final encryptedMarker = markerRow.first['value'] as String;
-        try {
-          final decryptedMarker = _decryptValue(encryptedMarker);
-          if (decryptedMarker != 'verified') {
-            throw Exception('Invalid password (marker mismatch)');
-          } else {
-            _initialized = true;
-          }
-        } catch (e) {
-          throw Exception('Invalid password (decryption failed)');
-        }
-      }
+    // Generate salt and IV
+    final salt = _generateSalt();
+    await _db.insert('metadata', {
+      'key': 'salt',
+      'value': base64Encode(salt),
     });
+    _iv = IV.fromSecureRandom(16);
+    await _db.insert('metadata', {'key': 'iv', 'value': _iv.base64});
+
+    // Derive AES key
+    final keyBytes = await _deriveKey(password, salt);
+    final key = Key(keyBytes);
+    _encrypter = Encrypter(AES(key));
+
+    // Store encrypted marker
+    final encryptedMarker = _encryptValue('verified');
+    await _db.insert('metadata', {
+      'key': 'marker',
+      'value': encryptedMarker,
+    });
+    _initialized = true;
+  }
+
+  Future<void> openExistingDatabase(String password, {String? dbPath}) async {
+    if (_initialized) return;
+
+    sqfliteFfiInit();
+    final dbFactory = databaseFactoryFfi;
+
+    String resolvedDbPath = dbPath ?? '';
+    if (resolvedDbPath.isEmpty) {
+      final io.Directory dir = await getApplicationDocumentsDirectory();
+      resolvedDbPath = p.join(dir.path, 'databases', 'journal.db');
+    }
+
+    _db = await dbFactory.openDatabase(resolvedDbPath);
+
+
+    // Get salt
+    final saltRow = await _db.query(
+      'metadata',
+      where: 'key = ?',
+      whereArgs: ['salt'],
+    );
+    if (saltRow.isEmpty) throw Exception('Corrupt database: missing salt');
+    final salt = base64Decode(saltRow.first['value'] as String);
+
+    // Derive AES key
+    final keyBytes = await _deriveKey(password, salt);
+    final key = Key(keyBytes);
+
+    // Get IV
+    final ivRow = await _db.query(
+      'metadata',
+      where: 'key = ?',
+      whereArgs: ['iv'],
+    );
+    if (ivRow.isEmpty) throw Exception('Corrupt database: missing IV');
+    _iv = IV.fromBase64(ivRow.first['value'] as String);
+
+    _encrypter = Encrypter(AES(key));
+
+    // Validate marker
+    final markerRow = await _db.query(
+      'metadata',
+      where: 'key = ?',
+      whereArgs: ['marker'],
+    );
+    if (markerRow.isEmpty) throw Exception('Corrupt database: missing marker');
+    final encryptedMarker = markerRow.first['value'] as String;
+    try {
+      final decryptedMarker = _decryptValue(encryptedMarker);
+      if (decryptedMarker != 'verified') {
+        throw Exception('Invalid password (marker mismatch)');
+      } else {
+        _initialized = true;
+      }
+    } catch (e) {
+      throw Exception('Invalid password (decryption failed)');
+    }
   }
 
   bool isInitialized(){

@@ -17,8 +17,15 @@ class EditorStateNotifier extends Notifier<EditorState> {
     return EditorState(date: Formatters.date(DateTime.now()), controller: _controller);
   }
 
-  void setDate(DateTime date) {
-    state = EditorState(date: Formatters.date(date), controller: state.controller);
+  void setDate(DateTime date, {int? retainDay}) {
+    int day = retainDay ?? date.day;
+    int year = date.year;
+    int month = date.month;
+    // Last day of month must be a valid date
+    int lastDayOfMonth = DateTime(year, month + 1, 0).day;
+    int newDay = day <= lastDayOfMonth ? day : lastDayOfMonth;
+    final newDate = DateTime(year, month, newDay);
+    state = EditorState(date: Formatters.date(newDate), controller: state.controller);
   }
 
   void setText(String text) {

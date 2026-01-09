@@ -26,7 +26,8 @@ class Calendar extends ConsumerWidget {
                       )!,
                     );
                     if (selected != null) {
-                      ref.read(editorProvider.notifier).setDate(selected);
+                      final currentDate = DateTime.tryParse(ref.read(editorProvider).date)!;
+                      ref.read(editorProvider.notifier).setDate(selected, retainDay: currentDate.day);
                     }
                   },
                   daysOfWeekHeight: 25,

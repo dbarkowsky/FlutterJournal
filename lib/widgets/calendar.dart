@@ -6,23 +6,15 @@ import 'package:month_picker_dialog/month_picker_dialog.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:journal/providers/db_provider.dart';
 
-class Calendar extends StatelessWidget {
+class Calendar extends ConsumerWidget {
   const Calendar({super.key});
   @override
-  Widget build(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, _) {
-        final dbAsync = ref.watch(dbProvider);
-        return dbAsync.when(
-          data: (db) {
-            return FutureBuilder<Map<String, String>>(
-              future: db.getAllEntries(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final entryDates = snapshot.data!.keys.toSet();
-                return TableCalendar(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entriesAsync = ref.watch(entriesProvider);
+    return entriesAsync.when(
+      data: (entries) {
+        final entryDates = entries.keys.toSet();
+        return TableCalendar(
                   headerStyle: HeaderStyle(titleCentered: true),
                   onHeaderTapped: (focusedDay) async {
                     final selected = await showMonthPicker(
@@ -114,13 +106,9 @@ class Calendar extends StatelessWidget {
                     ref.read(editorProvider.notifier).setDate(selectedDay);
                   },
                 );
-              },
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, st) => Center(child: Text('Error loading entries')),
-        );
       },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, st) => Center(child: Text('Error loading entries')),
     );
   }
 }

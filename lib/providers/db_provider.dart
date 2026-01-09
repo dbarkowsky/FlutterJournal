@@ -34,6 +34,11 @@ class EntriesNotifier extends Notifier<AsyncValue<Map<String, String>>> {
     await db.removeEntry(date);
     await _loadEntries();
   }
+
+  Future<List<Map<String, dynamic>>> searchEntries(String query) async {
+    final entries = await db.searchEntries(query);
+    return entries;
+  }
 }
 
 final entriesProvider = NotifierProvider<EntriesNotifier, AsyncValue<Map<String, String>>>(EntriesNotifier.new);

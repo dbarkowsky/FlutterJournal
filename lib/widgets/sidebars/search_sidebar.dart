@@ -33,16 +33,8 @@ class _SearchSidebarState extends ConsumerState<SearchSidebar> {
       return;
     }
     setState(() => _loading = true);
-    final dbAsync = ref.read(dbProvider);
-    final db = dbAsync.asData?.value;
-    if (db == null) {
-      setState(() {
-        _results = [];
-        _loading = false;
-      });
-      return;
-    }
-    final results = await db.searchEntries(query);
+    final entriesNotifier = ref.read(entriesProvider.notifier);
+    final results = await entriesNotifier.searchEntries(query);
     setState(() {
       _results = results;
       _loading = false;

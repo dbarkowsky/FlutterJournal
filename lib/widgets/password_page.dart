@@ -7,6 +7,7 @@ import 'package:journal/sqlite/database.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:journal/helpers/last_db_prefs.dart';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class PasswordPage extends ConsumerStatefulWidget {
   const PasswordPage({super.key});
@@ -17,7 +18,13 @@ class PasswordPage extends ConsumerStatefulWidget {
 
 class _PasswordPageState extends ConsumerState<PasswordPage> {
   Future<void> _showCreateDatabaseDialog() async {
-    final folderController = TextEditingController();
+    // Get a cross-platform default folder path
+    String defaultFolder = '';
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      defaultFolder = dir.path;
+    } catch (_) {}
+    final folderController = TextEditingController(text: defaultFolder);
     final fileNameController = TextEditingController(text: "journal");
     final passwordController = TextEditingController();
     final confirmController = TextEditingController();

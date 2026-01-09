@@ -17,6 +17,7 @@ class MarkdownEditor extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, st) => Center(child: Text('DB Error: $e')),
       data: (db) {
+        // Listen for date changes and update controller text accordingly
         ref.listen<EditorState>(editorProvider, (previous, next) {
           if (previous?.date != next.date) {
             final dateString = next.date;
@@ -27,6 +28,14 @@ class MarkdownEditor extends ConsumerWidget {
             });
           }
         });
+
+        // On initial build, load the entry for the current date if needed
+        db.getEntry(date).then((entry) {
+          if (controller.text != (entry ?? "")) {
+            controller.text = entry ?? "";
+          }
+        });
+
         return SizedBox.expand(
           child: TextField(
             controller: controller,

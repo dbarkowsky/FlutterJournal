@@ -41,6 +41,7 @@ class _SearchSidebarState extends ConsumerState<SearchSidebar> {
     });
   }
 
+  // TODO: Handle multiple matches in a single entry.
   Widget buildSnippet(
     String content,
     String query,

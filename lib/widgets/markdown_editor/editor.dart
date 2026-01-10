@@ -23,9 +23,6 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
 
     // Listen for date changes and update controller text accordingly
     ref.listen<EditorState>(editorProvider, (previous, next) {
-      setState(() {
-        _isEditMode = false;
-      });
       if (previous?.date != next.date) {
         final dateString = next.date;
         ref.read(entriesProvider.notifier).getEntryContent(dateString).then((
@@ -34,11 +31,17 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
           controller.text = entry;
         });
       }
+      // Always open a day's entry in view mode
+      setState(() {
+        _isEditMode = false;
+      });
     });
 
     // On initial build, load the entry for the current date if needed
     ref.read(entriesProvider.notifier).getEntryContent(date).then((entry) {
       controller.text = entry;
+      // Empty state call just to refresh widget after text is loaded in controller
+      setState(() {});
     });
 
     return Column(
@@ -48,9 +51,34 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
             spacing: 2,
             children: [
+              Text(
+                date,
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              ),
+              SizedBox(
+                height: 28, // Set height to match your row content
+                child: VerticalDivider(thickness: 2, color: Colors.black),
+              ),
               TextButton(
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.all(
+                    Colors.lightBlueAccent.withAlpha(70), 
+                  ),
+                  shape: WidgetStateProperty.all(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ), // Makes it more square
+                  ),
+                ),
                 onPressed: () {
                   setState(() {
                     _isEditMode = !_isEditMode;
@@ -84,9 +112,6 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                         .addOrUpdateEntry(date, text);
                   },
                   decoration: const InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.zero),
-                    ),
                     hintText: '...',
                   ),
                 )

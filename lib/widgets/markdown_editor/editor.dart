@@ -60,7 +60,7 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
               ),
               SizedBox(
                 height: 28, // Set height to match your row content
-                child: VerticalDivider(thickness: 2, color: Colors.black),
+                child: VerticalDivider(thickness: 1,),
               ),
               TextButton(
                 style: ButtonStyle(

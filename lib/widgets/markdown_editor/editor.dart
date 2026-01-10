@@ -32,12 +32,12 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
           entry,
         ) {
           controller.text = entry;
+          // Always open a day's entry in view mode
+          setState(() {
+            _isEditMode = false;
+          });
         });
       }
-      // Always open a day's entry in view mode
-      setState(() {
-        _isEditMode = false;
-      });
     });
 
     // On initial build, load the entry for the current date if needed

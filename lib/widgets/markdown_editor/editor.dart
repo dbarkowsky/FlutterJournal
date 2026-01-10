@@ -49,6 +49,14 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
       }
     });
 
+    Future<void> save(String text) async {
+      if (text.isEmpty) {
+        await ref.read(entriesProvider.notifier).removeEntry(date);
+      } else {
+        await ref.read(entriesProvider.notifier).addOrUpdateEntry(date, text);
+      }
+    }
+
     return Column(
       children: [
         // Options bar
@@ -61,6 +69,7 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
               _isEditMode = !_isEditMode;
             });
           },
+          onSave: save,
         ),
         const Divider(height: 1),
         Expanded(
@@ -74,15 +83,7 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                       if (isCtrlPressed &&
                           event.logicalKey == LogicalKeyboardKey.keyS) {
                         final text = controller.text;
-                        if (text.isEmpty) {
-                          await ref
-                              .read(entriesProvider.notifier)
-                              .removeEntry(date);
-                        } else {
-                          await ref
-                              .read(entriesProvider.notifier)
-                              .addOrUpdateEntry(date, text);
-                        }
+                        await save(text);
                         // Optionally show a snackbar or feedback
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,15 +104,7 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                       _debounce = Timer(
                         const Duration(milliseconds: 1000),
                         () async {
-                          if (text.isEmpty) {
-                            await ref
-                                .read(entriesProvider.notifier)
-                                .removeEntry(date);
-                            return;
-                          }
-                          await ref
-                              .read(entriesProvider.notifier)
-                              .addOrUpdateEntry(date, text);
+                          await save(text);
                         },
                       );
                     },

@@ -11,6 +11,7 @@ class EntryDateAccordionList extends ConsumerStatefulWidget {
   ConsumerState<EntryDateAccordionList> createState() => _EntryDateAccordionListState();
 }
 
+// TODO: show a snippet of the text for a found entry, not all or just a word. bold main word
 class _EntryDateAccordionListState extends ConsumerState<EntryDateAccordionList> {
   final Map<int, bool> _expandedYears = {};
   final Map<String, bool> _expandedMonths = {};

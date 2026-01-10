@@ -121,7 +121,10 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
               : GestureDetector(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(12),
-                    child: MarkdownBlock(data: controller.text),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: MarkdownBlock(data: controller.text),
+                    ),
                   ),
                   onDoubleTap: () {
                     setState(() {

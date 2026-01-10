@@ -23,6 +23,9 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
 
     // Listen for date changes and update controller text accordingly
     ref.listen<EditorState>(editorProvider, (previous, next) {
+      setState(() {
+        _isEditMode = false;
+      });
       if (previous?.date != next.date) {
         final dateString = next.date;
         ref.read(entriesProvider.notifier).getEntryContent(dateString).then((
@@ -87,12 +90,14 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                     hintText: '...',
                   ),
                 )
-              : GestureDetector(child: _MarkdownView(markdownData: controller.text), onDoubleTap: (){
-                setState(() {
-                    _isEditMode = !_isEditMode;
-                  });
-              },)
-              ,
+              : GestureDetector(
+                  child: _MarkdownView(markdownData: controller.text),
+                  onDoubleTap: () {
+                    setState(() {
+                      _isEditMode = !_isEditMode;
+                    });
+                  },
+                ),
         ),
       ],
     );

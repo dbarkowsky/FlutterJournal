@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 class EditorToolbar extends StatelessWidget {
-  String date;
-  TextEditingController controller;
-  bool isEdit;
-  VoidCallback onEditPress;
+  final String date;
+  final TextEditingController controller;
+  final bool isEdit;
+  final VoidCallback onEditPress;
 
-  EditorToolbar({
+  const EditorToolbar({
     super.key,
     required this.date,
     required this.controller,
@@ -85,7 +85,7 @@ class EditorToolbar extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
             ),
-            onPressed: this.onEditPress,
+            onPressed: onEditPress,
             child: Text(
               isEdit ? 'View' : 'Edit',
               style: Theme.of(context).textTheme.titleMedium,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:flutter_html/flutter_html.dart';
@@ -14,6 +16,7 @@ class MarkdownEditor extends ConsumerStatefulWidget {
 
 class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
   bool _isEditMode = false;
+  Timer? _debounce;
 
   @override
   Widget build(BuildContext context) {
@@ -97,23 +100,46 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
         const Divider(height: 1),
         Expanded(
           child: _isEditMode
-              ? TextField(
-                  controller: controller,
-                  textAlignVertical: TextAlignVertical.top,
-                  maxLines: null,
-                  expands: true,
-                  onChanged: (text) async {
-                    if (text.isEmpty) {
-                      await ref
-                          .read(entriesProvider.notifier)
-                          .removeEntry(date);
-                      return;
+              ? KeyboardListener(
+                  focusNode: FocusNode(),
+                  onKeyEvent: (KeyEvent event) async {
+                    if (event is KeyDownEvent) {
+                      final isCtrlPressed = HardwareKeyboard.instance.isControlPressed;
+                      if (isCtrlPressed && event.logicalKey == LogicalKeyboardKey.keyS) {
+                        final text = controller.text;
+                        if (text.isEmpty) {
+                          await ref.read(entriesProvider.notifier).removeEntry(date);
+                        } else {
+                          await ref.read(entriesProvider.notifier).addOrUpdateEntry(date, text);
+                        }
+                        // Optionally show a snackbar or feedback
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Manual save! (Ctrl+S)')),
+                        );
+                      }
                     }
-                    await ref
-                        .read(entriesProvider.notifier)
-                        .addOrUpdateEntry(date, text);
                   },
-                  decoration: const InputDecoration(hintText: '...'),
+                  child: TextField(
+                    controller: controller,
+                    textAlignVertical: TextAlignVertical.top,
+                    maxLines: null,
+                    expands: true,
+                    onChanged: (text) {
+                      _debounce?.cancel();
+                      _debounce = Timer(
+                        const Duration(milliseconds: 1000),
+                        () async {
+                          if (text.isEmpty) {
+                            await ref.read(entriesProvider.notifier).removeEntry(date);
+                            return;
+                          }
+                          await ref.read(entriesProvider.notifier).addOrUpdateEntry(date, text);
+                        },
+                      );
+                    },
+                    decoration: const InputDecoration(hintText: '...'),
+                  ),
                 )
               : GestureDetector(
                   child: _MarkdownView(markdownData: controller.text),
@@ -126,6 +152,12 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
         ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
   }
 }
 

@@ -39,9 +39,11 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
 
     // On initial build, load the entry for the current date if needed
     ref.read(entriesProvider.notifier).getEntryContent(date).then((entry) {
-      controller.text = entry;
-      // Empty state call just to refresh widget after text is loaded in controller
-      setState(() {});
+      if (controller.text != entry) {
+        controller.text = entry;
+        // Empty state call just to refresh widget after text is loaded in controller
+        setState(() {});
+      }
     });
 
     return Column(
@@ -60,12 +62,12 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
               ),
               SizedBox(
                 height: 28, // Set height to match your row content
-                child: VerticalDivider(thickness: 1,),
+                child: VerticalDivider(thickness: 1),
               ),
               TextButton(
                 style: ButtonStyle(
                   backgroundColor: WidgetStateProperty.all(
-                    Colors.lightBlueAccent.withAlpha(70), 
+                    Colors.lightBlueAccent.withAlpha(70),
                   ),
                   shape: WidgetStateProperty.all(
                     RoundedRectangleBorder(
@@ -111,9 +113,7 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                         .read(entriesProvider.notifier)
                         .addOrUpdateEntry(date, text);
                   },
-                  decoration: const InputDecoration(
-                    hintText: '...',
-                  ),
+                  decoration: const InputDecoration(hintText: '...'),
                 )
               : GestureDetector(
                   child: _MarkdownView(markdownData: controller.text),

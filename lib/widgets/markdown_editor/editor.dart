@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'dart:io' show Platform, Process;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/widgets/markdown_editor/editor_toolbar.dart';
 import 'package:journal/providers/editor_provider.dart';
 import 'package:journal/providers/db_provider.dart';
 import 'package:markdown_widget/markdown_widget.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MarkdownEditor extends ConsumerStatefulWidget {
   const MarkdownEditor({super.key});
@@ -116,7 +118,45 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                     padding: const EdgeInsets.all(12),
                     child: Align(
                       alignment: Alignment.topLeft,
-                      child: MarkdownBlock(data: controller.text),
+                      child: MarkdownBlock(
+                        data: controller.text,
+                        config: MarkdownConfig(
+                          configs: [
+                            LinkConfig(
+                              onTap: (url) async {
+                                final uri = Uri.parse(url);
+                                try {
+                                  if (Platform.isWindows) {
+                                    await Process.run('start', [
+                                      url,
+                                    ], runInShell: true);
+                                  } else if (Platform.isMacOS) {
+                                    await Process.run('open', [url]);
+                                  } else if (Platform.isLinux) {
+                                    await Process.run('xdg-open', [url]);
+                                  } else {
+                                    await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Failed to open link: $e',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   onDoubleTap: () {

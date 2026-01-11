@@ -17,7 +17,6 @@ class EditorToolbar extends StatelessWidget {
   });
 
   // Helper to insert markdown at cursor
-
   Future<void> _insertMarkdown(
     TextEditingController controller,
     String left,
@@ -85,11 +84,6 @@ class EditorToolbar extends StatelessWidget {
               'onTap': () => _insertMarkdown(controller, '*', '*'),
             },
             {
-              'label': 'Underline',
-              'icon': Icon(Icons.format_underline),
-              'onTap': () => _insertMarkdown(controller, '<u>', '</u>'),
-            },
-            {
               'label': 'Strikethrough',
               'icon': Icon(Icons.strikethrough_s),
               'onTap': () => _insertMarkdown(controller, '~~', '~~'),
@@ -123,6 +117,11 @@ class EditorToolbar extends StatelessWidget {
               'label': 'Insert Table',
               'icon': Icon(Icons.table_chart),
               'onTap': () => _insertTableMarkdown(controller),
+            },
+            {
+              'label': 'Insert Code Block',
+              'icon': Icon(Icons.code),
+              'onTap': () => _insertMarkdown(controller, '```\n', '\n```'),
             },
           ];
 

@@ -46,6 +46,25 @@ class JournalDB {
       )
     ''');
 
+    await _db.execute('''
+      CREATE TABLE IF NOT EXISTS attachments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        data BLOB NOT NULL
+      )
+    ''');
+
+    await _db.execute('''
+      CREATE TABLE IF NOT EXISTS entries_attachments (
+        entry_date TEXT NOT NULL,
+        attachment_id INTEGER NOT NULL,
+        PRIMARY KEY (entry_date, attachment_id),
+        FOREIGN KEY (entry_date) REFERENCES entries(date) ON DELETE CASCADE,
+        FOREIGN KEY (attachment_id) REFERENCES attachments(id) ON DELETE CASCADE
+      )
+    ''');
+
     // Generate salt and IV
     final salt = _generateSalt();
     await _db.insert('metadata', {
@@ -173,7 +192,13 @@ class JournalDB {
     return _encrypter.decrypt(encrypted, iv: _iv);
   }
 
-  // Encrypt and insert or update an entry by date (yyyy-mm-dd)
+  // Helper: extract attachment IDs from markdown (expects ![...](attachment:ID) or similar)
+  Set<int> _extractAttachmentIds(String content) {
+    final regex = RegExp(r'attachment:(\d+)', caseSensitive: false);
+    return regex.allMatches(content).map((m) => int.tryParse(m.group(1) ?? '')).whereType<int>().toSet();
+  }
+
+  // Encrypt and insert or update an entry by date (yyyy-mm-dd), update relationship table
   Future<void> upsertEntry(String date, String content) async {
     if (!_initialized) throw Exception('Database not initialized');
     final encrypted = _encrypter.encrypt(content, iv: _iv).base64;
@@ -181,6 +206,18 @@ class JournalDB {
       'date': date,
       'content': encrypted,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    // Update entries_attachments table
+    final referencedIds = _extractAttachmentIds(content);
+    // Remove all old links for this entry
+    await _db.delete('entries_attachments', where: 'entry_date = ?', whereArgs: [date]);
+    // Add new links
+    for (final id in referencedIds) {
+      await _db.insert('entries_attachments', {
+        'entry_date': date,
+        'attachment_id': id,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
   }
 
   // Decrypt and return entry for a specific date
@@ -227,6 +264,53 @@ class JournalDB {
 
   Future<void> removeEntry(String date) async {
     if (!_initialized) throw Exception('Database not initialized');
+    // Remove from entries_attachments first (optional, ON DELETE CASCADE should handle it)
+    await _db.delete('entries_attachments', where: 'entry_date = ?', whereArgs: [date]);
     await _db.delete('entries', where: 'date = ?', whereArgs: [date]);
+  }
+
+  // Insert a new attachment, returns the inserted row id
+  Future<int> insertAttachment({
+    required String mimeType,
+    required List<int> data,
+    String? createdAt,
+  }) async {
+    if (!_initialized) throw Exception('Database not initialized');
+    final now = createdAt ?? DateTime.now().toIso8601String();
+    return await _db.insert('attachments', {
+      'created_at': now,
+      'mime_type': mimeType,
+      'data': data,
+    });
+  }
+
+  // Delete an attachment by id
+  Future<void> deleteAttachment(int id) async {
+    if (!_initialized) throw Exception('Database not initialized');
+    await _db.delete('attachments', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Count how many entries reference this attachment
+  Future<int> countEntriesReferencingAttachment(int attachmentId) async {
+    if (!_initialized) throw Exception('Database not initialized');
+    // If you have a join table, adjust the table/column names accordingly
+    final result = await _db.rawQuery('''
+      SELECT COUNT(*) as count FROM entries_attachments WHERE attachment_id = ?
+    ''', [attachmentId]);
+    if (result.isNotEmpty && result.first.containsKey('count')) {
+      final value = result.first['count'];
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+    }
+    return 0;
+  }
+
+  // Get attachment data by id
+  Future<Map<String, dynamic>?> getAttachment(int id) async {
+    if (!_initialized) throw Exception('Database not initialized');
+    final rows = await _db.query('attachments', where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return null;
+    return rows.first;
   }
 }

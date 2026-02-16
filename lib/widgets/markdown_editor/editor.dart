@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/widgets/markdown_editor/editor_toolbar.dart';
 import 'package:journal/providers/editor_provider.dart';
 import 'package:journal/providers/db_provider.dart';
-import 'package:markdown_widget/markdown_widget.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class MarkdownEditor extends ConsumerStatefulWidget {
@@ -30,9 +30,7 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
     ref.listen<EditorState>(editorProvider, (previous, next) {
       if (previous?.date != next.date) {
         final dateString = next.date;
-        ref.read(entriesProvider.notifier).getEntryContent(dateString).then((
-          entry,
-        ) {
+        ref.read(entriesProvider.notifier).getEntryContent(dateString).then((entry) {
           controller.text = entry;
           // Always open a day's entry in view mode
           setState(() {
@@ -114,56 +112,64 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                   ),
                 )
               : GestureDetector(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(12),
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: MarkdownBlock(
-                        data: controller.text,
-                        config: MarkdownConfig(
-                          configs: [
-                            LinkConfig(
-                              onTap: (url) async {
-                                final uri = Uri.parse(url);
-                                try {
-                                  if (Platform.isWindows) {
-                                    await Process.run('start', [
-                                      url,
-                                    ], runInShell: true);
-                                  } else if (Platform.isMacOS) {
-                                    await Process.run('open', [url]);
-                                  } else if (Platform.isLinux) {
-                                    await Process.run('xdg-open', [url]);
-                                  } else {
-                                    await launchUrl(
-                                      uri,
-                                      mode: LaunchMode.externalApplication,
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Failed to open link: $e',
-                                        ),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
                   onDoubleTap: () {
                     setState(() {
                       _isEditMode = !_isEditMode;
                     });
                   },
+                  child: Markdown(
+                    data: controller.text,
+                    selectable: true,
+                    padding: const EdgeInsets.all(12),
+                    styleSheet: MarkdownStyleSheet(
+                      a: const TextStyle(
+                        color: Colors.blue,
+                      ),
+                      code: const TextStyle(
+                        backgroundColor: Color(0xFFF5F5F5),
+                        fontFamily: 'monospace',
+                      ),
+                      codeblockDecoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    onTapLink: (text, href, title) async {
+                      if (href == null) return;
+                      Uri uri = Uri.parse(href);
+                      // if the link is missing the protocol, we have to add it
+                      if (uri.scheme.isEmpty) {
+                        uri = Uri.parse('https://$href');
+                      }
+                      try {
+                        if (Platform.isWindows) {
+                          await Process.run('start', [
+                            uri.toString(),
+                          ], runInShell: true);
+                        } else if (Platform.isMacOS) {
+                          await Process.run('open', [uri.toString()]);
+                        } else if (Platform.isLinux) {
+                          await Process.run('xdg-open', [uri.toString()]);
+                        } else {
+                          await launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Failed to open link: $e',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
                 ),
         ),
       ],

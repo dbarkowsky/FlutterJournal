@@ -1,15 +1,19 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:path/path.dart' as p;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:journal/providers/db_provider.dart';
 
-class ImageInsertModal extends StatefulWidget {
-  final void Function(String imageUrl) onInsert;
+class ImageInsertModal extends ConsumerStatefulWidget {
+  final void Function(String markdown) onInsert;
   const ImageInsertModal({super.key, required this.onInsert});
 
   @override
-  State<ImageInsertModal> createState() => _ImageInsertModalState();
+  ConsumerState<ImageInsertModal> createState() => _ImageInsertModalState();
 }
 
-class _ImageInsertModalState extends State<ImageInsertModal>
+class _ImageInsertModalState extends ConsumerState<ImageInsertModal>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _urlController = TextEditingController();
@@ -26,6 +30,37 @@ class _ImageInsertModalState extends State<ImageInsertModal>
     _tabController.dispose();
     _urlController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleFileInsert() async {
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Select Image File',
+      type: FileType.image,
+    );
+    if (result != null && result.files.single.path != null) {
+      final pickedPath = result.files.single.path!;
+      final file = File(pickedPath);
+      final bytes = await file.readAsBytes();
+      final mimeType = 'image/${p.extension(pickedPath).replaceAll('.', '')}';
+      final dbAsync = ref.read(dbProvider);
+      if (!dbAsync.hasValue) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to access database.')),
+        );
+        Navigator.of(context).pop();
+        return;
+      }
+      final db = dbAsync.value!;
+      // Insert into attachments table
+      final attachmentId = await db.insertAttachment(
+        mimeType: mimeType,
+        data: bytes,
+      );
+
+      final accessString = 'attachment:$attachmentId';
+      Navigator.of(context).pop(accessString);
+    }
   }
 
   @override
@@ -50,25 +85,9 @@ class _ImageInsertModalState extends State<ImageInsertModal>
               Column(
                 children: [
                   ElevatedButton(
-                    onPressed: () async {
-                      final result = await FilePicker.platform.pickFiles(
-                        dialogTitle: 'Select Image File',
-                        type: FileType.image,
-                      );
-                      if (result != null && result.files.single.path != null) {
-                        setState(() {
-                          String path = result.files.single.path!;
-                          path = path.replaceAll('\\', '/'); // Normalize for Windows paths
-                          _filePath = 'file:///${path}';
-                        });
-                      }
-                    },
+                    onPressed: _handleFileInsert,
                     child: const Text('Select Image File'),
                   ),
-                  if (_filePath != null) ...[
-                    const SizedBox(height: 8),
-                    Text('Selected: $_filePath'),
-                  ],
                 ],
               )
             else
@@ -85,12 +104,12 @@ class _ImageInsertModalState extends State<ImageInsertModal>
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: () {
+          onPressed: () async {
             if (_tabController.index == 0 && _filePath != null) {
-              widget.onInsert(_filePath!);
+              // Not used, file picker returns immediately
             } else if (_tabController.index == 1 &&
                 _urlController.text.isNotEmpty) {
-              widget.onInsert(_urlController.text);
+              Navigator.of(context).pop(_urlController.text);
             }
           },
           child: const Text('Insert'),

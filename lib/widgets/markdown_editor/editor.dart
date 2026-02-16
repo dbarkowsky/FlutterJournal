@@ -30,7 +30,9 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
     ref.listen<EditorState>(editorProvider, (previous, next) {
       if (previous?.date != next.date) {
         final dateString = next.date;
-        ref.read(entriesProvider.notifier).getEntryContent(dateString).then((entry) {
+        ref.read(entriesProvider.notifier).getEntryContent(dateString).then((
+          entry,
+        ) {
           controller.text = entry;
           // Always open a day's entry in view mode
           setState(() {
@@ -122,9 +124,7 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                     selectable: true,
                     padding: const EdgeInsets.all(12),
                     styleSheet: MarkdownStyleSheet(
-                      a: const TextStyle(
-                        color: Colors.blue,
-                      ),
+                      a: const TextStyle(color: Colors.blue),
                       code: const TextStyle(
                         backgroundColor: Color(0xFFF5F5F5),
                         fontFamily: 'monospace',
@@ -134,6 +134,46 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
+                    imageBuilder: (Uri uri, String? title, String? alt) {
+                      if (uri.scheme == 'attachment') {
+                        final attachmentId = int.tryParse(uri.path);
+                        if (attachmentId == null) {
+                          return const Icon(Icons.broken_image);
+                        }
+                        final dbAsync = ref.read(dbProvider);
+                        if (!dbAsync.hasValue) {
+                          return const SizedBox.shrink();
+                        }
+                        final db = dbAsync.value!;
+                        return FutureBuilder<Map<String, dynamic>?>(
+                          future: db.getAttachment(attachmentId),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              );
+                            }
+                            if (!snapshot.hasData || snapshot.data == null) {
+                              return const Icon(Icons.broken_image);
+                            }
+                            Uint8List imageBytes = snapshot.data!['data'];
+                            return Image.memory(imageBytes);
+                          },
+                        );
+                      }
+                      if (uri.scheme == 'http' || uri.scheme == 'https') {
+                        return Image.network(uri.toString(), errorBuilder:
+                            (context, error, stackTrace) {
+                          return const Icon(Icons.broken_image);
+                        });
+                      }
+                      return const Icon(Icons.broken_image);
+                    },
                     onTapLink: (text, href, title) async {
                       if (href == null) return;
                       Uri uri = Uri.parse(href);
@@ -160,9 +200,7 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(
-                                'Failed to open link: $e',
-                              ),
+                              content: Text('Failed to open link: $e'),
                               backgroundColor: Colors.red,
                             ),
                           );

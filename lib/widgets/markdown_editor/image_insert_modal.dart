@@ -1,7 +1,5 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'dart:io';
-import 'package:path/path.dart' as p;
+import 'package:journal/helpers/image_tools.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/providers/db_provider.dart';
 
@@ -33,15 +31,7 @@ class _ImageInsertModalState extends ConsumerState<ImageInsertModal>
   }
 
   Future<void> _handleFileInsert() async {
-    final result = await FilePicker.platform.pickFiles(
-      dialogTitle: 'Select Image File',
-      type: FileType.image,
-    );
-    if (result != null && result.files.single.path != null) {
-      final pickedPath = result.files.single.path!;
-      final file = File(pickedPath);
-      final bytes = await file.readAsBytes();
-      final mimeType = 'image/${p.extension(pickedPath).replaceAll('.', '')}';
+
       final dbAsync = ref.read(dbProvider);
       if (!dbAsync.hasValue) {
         if (!context.mounted) return;
@@ -53,14 +43,10 @@ class _ImageInsertModalState extends ConsumerState<ImageInsertModal>
       }
       final db = dbAsync.value!;
       // Insert into attachments table
-      final attachmentId = await db.insertAttachment(
-        mimeType: mimeType,
-        data: bytes,
-      );
+      final attachmentId = await pickAndInsertImage(context: context, db: db);
 
       final accessString = 'attachment:$attachmentId';
       Navigator.of(context).pop(accessString);
-    }
   }
 
   @override

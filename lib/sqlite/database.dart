@@ -290,6 +290,24 @@ class JournalDB {
     await _db.delete('attachments', where: 'id = ?', whereArgs: [id]);
   }
 
+    /// Update an existing attachment's data and mime type by id
+  Future<void> updateAttachment({
+    required int id,
+    required String mimeType,
+    required List<int> data,
+  }) async {
+    if (!_initialized) throw Exception('Database not initialized');
+    await _db.update(
+      'attachments',
+      {
+        'mime_type': mimeType,
+        'data': data,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   // Count how many entries reference this attachment
   Future<int> countEntriesReferencingAttachment(int attachmentId) async {
     if (!_initialized) throw Exception('Database not initialized');
@@ -313,4 +331,9 @@ class JournalDB {
     if (rows.isEmpty) return null;
     return rows.first;
   }
+
+  Future<List<Map<String, dynamic>>> getAllAttachments() async {
+  if (!_initialized) throw Exception('Database not initialized');
+  return await _db.query('attachments');
+}
 }

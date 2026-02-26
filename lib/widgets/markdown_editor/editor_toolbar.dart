@@ -187,40 +187,43 @@ class EditorToolbar extends StatelessWidget {
                 ),
               ),
               // Markdown option buttons
-              SizedBox(width: 8),
-              if (!showDropdown)
-                ...iconActions.map(
-                  (action) => buildIconButton(
-                    action['label'] as String,
-                    action['icon'] as Icon,
-                    action['onTap'] as VoidCallback,
-                  ),
-                )
-              else
-                SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: PopupMenuButton<int>(
-                    tooltip: 'Formatting',
-                    icon: Icon(Icons.more_horiz, size: 24),
-                    padding: EdgeInsets.zero,
-                    itemBuilder: (context) => [
-                      for (int i = 0; i < iconActions.length; i++)
-                        PopupMenuItem<int>(
-                          value: i,
-                          child: Row(
-                            children: [
-                              iconActions[i]['icon'] as Icon,
-                              SizedBox(width: 8),
-                              Text(iconActions[i]['label'] as String),
-                            ],
+              // Only show on edit
+              if (isEdit) ...[
+                SizedBox(width: 8),
+                if (!showDropdown)
+                  ...iconActions.map(
+                    (action) => buildIconButton(
+                      action['label'] as String,
+                      action['icon'] as Icon,
+                      action['onTap'] as VoidCallback,
+                    ),
+                  )
+                else
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: PopupMenuButton<int>(
+                      tooltip: 'Formatting',
+                      icon: Icon(Icons.more_horiz, size: 24),
+                      padding: EdgeInsets.zero,
+                      itemBuilder: (context) => [
+                        for (int i = 0; i < iconActions.length; i++)
+                          PopupMenuItem<int>(
+                            value: i,
+                            child: Row(
+                              children: [
+                                iconActions[i]['icon'] as Icon,
+                                SizedBox(width: 8),
+                                Text(iconActions[i]['label'] as String),
+                              ],
+                            ),
                           ),
-                        ),
-                    ],
-                    onSelected: (i) =>
-                        (iconActions[i]['onTap'] as VoidCallback?)?.call(),
+                      ],
+                      onSelected: (i) =>
+                          (iconActions[i]['onTap'] as VoidCallback?)?.call(),
+                    ),
                   ),
-                ),
+              ],
             ],
           );
         },

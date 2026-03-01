@@ -137,6 +137,18 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                       ),
                     ),
                     imageBuilder: (Uri uri, String? title, String? alt) {
+                      // Parse Obsidian-style size hint from alt text.
+                      // e.g. "![my image|300](url)" renders at 300 px wide.
+                      double? imageWidth;
+                      if (alt != null && alt.contains('|')) {
+                        final pipeIdx = alt.lastIndexOf('|');
+                        final sizePart = alt.substring(pipeIdx + 1).trim();
+                        final parsed = double.tryParse(sizePart);
+                        if (parsed != null && parsed > 0) {
+                          imageWidth = parsed;
+                        }
+                      }
+
                       if (uri.scheme == 'attachment') {
                         final attachmentId = int.tryParse(uri.path);
                         if (attachmentId == null) {
@@ -164,15 +176,25 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                               return const Icon(Icons.broken_image);
                             }
                             Uint8List imageBytes = snapshot.data!['data'];
-                            return Image.memory(imageBytes);
+                            return Image.memory(
+                              imageBytes,
+                              width: imageWidth,
+                              fit: imageWidth != null
+                                  ? BoxFit.contain
+                                  : null,
+                            );
                           },
                         );
                       }
                       if (uri.scheme == 'http' || uri.scheme == 'https') {
-                        return Image.network(uri.toString(), errorBuilder:
-                            (context, error, stackTrace) {
-                          return const Icon(Icons.broken_image);
-                        });
+                        return Image.network(
+                          uri.toString(),
+                          width: imageWidth,
+                          fit: imageWidth != null ? BoxFit.contain : null,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.broken_image);
+                          },
+                        );
                       }
                       return const Icon(Icons.broken_image);
                     },

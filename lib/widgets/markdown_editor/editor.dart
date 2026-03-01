@@ -132,14 +132,16 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                     padding: const EdgeInsets.all(12),
                     styleSheet: MarkdownStyleSheet(
                       a: const TextStyle(color: Colors.blue),
-                      code: const TextStyle(
-                        backgroundColor: Color(0xFFF5F5F5),
+                      code: TextStyle(
+                        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontFamily: 'monospace',
                       ),
                       codeblockDecoration: BoxDecoration(
-                        color: const Color(0xFFF5F5F5),
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(4),
                       ),
+                      codeblockPadding: const EdgeInsets.all(12),
                     ),
                     imageBuilder: (Uri uri, String? title, String? alt) {
                       // Parse Obsidian-style size hint from alt text.

@@ -85,6 +85,13 @@ class JournalDB {
       'key': 'marker',
       'value': encryptedMarker,
     });
+
+    // Mark attachments as already encrypted (new DB has no plaintext blobs)
+    await _db.insert('metadata', {
+      'key': 'attachments_encrypted_v1',
+      'value': '1',
+    });
+
     _initialized = true;
   }
 
@@ -145,6 +152,9 @@ class JournalDB {
     } catch (e) {
       throw Exception('Invalid password (decryption failed)');
     }
+
+    // Migrate unencrypted attachment blobs to encrypted, if not done yet
+    await _migrateAttachmentsEncryption();
   }
 
   bool isInitialized(){
@@ -190,6 +200,52 @@ class JournalDB {
     final parts = stored.split(':');
     final encrypted = Encrypted.fromBase64(parts[1]);
     return _encrypter.decrypt(encrypted, iv: _iv);
+  }
+
+  // Encrypt binary data
+  List<int> _encryptBytes(List<int> data) {
+    final encrypted = _encrypter.encryptBytes(Uint8List.fromList(data), iv: _iv);
+    return encrypted.bytes;
+  }
+
+  // Decrypt binary data
+  Uint8List _decryptBytes(List<int> data) {
+    return Uint8List.fromList(_encrypter.decryptBytes(Encrypted(Uint8List.fromList(data)), iv: _iv));
+  }
+
+  // One-time migration: encrypts any attachment blobs that were stored in plaintext
+  Future<void> _migrateAttachmentsEncryption() async {
+    final flagRow = await _db.query(
+      'metadata',
+      where: 'key = ?',
+      whereArgs: ['attachments_encrypted_v1'],
+    );
+    if (flagRow.isNotEmpty) return; // already migrated
+
+    final rows = await _db.query('attachments');
+    for (final row in rows) {
+      final id = row['id'] as int;
+      final raw = row['data'];
+      final List<int> bytes;
+      if (raw is Uint8List) {
+        bytes = raw;
+      } else if (raw is List) {
+        bytes = raw.cast<int>();
+      } else {
+        continue;
+      }
+      await _db.update(
+        'attachments',
+        {'data': _encryptBytes(bytes)},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+
+    await _db.insert('metadata', {
+      'key': 'attachments_encrypted_v1',
+      'value': '1',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   // Helper: extract attachment IDs from markdown (expects ![...](attachment:ID) or similar)
@@ -280,7 +336,7 @@ class JournalDB {
     return await _db.insert('attachments', {
       'created_at': now,
       'mime_type': mimeType,
-      'data': data,
+      'data': _encryptBytes(data),
     });
   }
 
@@ -290,7 +346,7 @@ class JournalDB {
     await _db.delete('attachments', where: 'id = ?', whereArgs: [id]);
   }
 
-    /// Update an existing attachment's data and mime type by id
+  /// Update an existing attachment's data and mime type by id
   Future<void> updateAttachment({
     required int id,
     required String mimeType,
@@ -301,7 +357,7 @@ class JournalDB {
       'attachments',
       {
         'mime_type': mimeType,
-        'data': data,
+        'data': _encryptBytes(data),
       },
       where: 'id = ?',
       whereArgs: [id],
@@ -329,11 +385,18 @@ class JournalDB {
     if (!_initialized) throw Exception('Database not initialized');
     final rows = await _db.query('attachments', where: 'id = ?', whereArgs: [id]);
     if (rows.isEmpty) return null;
-    return rows.first;
+    final row = Map<String, dynamic>.from(rows.first);
+    row['data'] = _decryptBytes((row['data'] as List).cast<int>());
+    return row;
   }
 
   Future<List<Map<String, dynamic>>> getAllAttachments() async {
-  if (!_initialized) throw Exception('Database not initialized');
-  return await _db.query('attachments');
-}
+    if (!_initialized) throw Exception('Database not initialized');
+    final rows = await _db.query('attachments');
+    return rows.map((r) {
+      final row = Map<String, dynamic>.from(r);
+      row['data'] = _decryptBytes((row['data'] as List).cast<int>());
+      return row;
+    }).toList();
+  }
 }

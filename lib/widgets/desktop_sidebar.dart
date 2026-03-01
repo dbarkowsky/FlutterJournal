@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:journal/widgets/sidebars/entry_date_sidebar.dart';
 import 'package:journal/widgets/sidebars/image_gallery_sidebar.dart';
+import 'package:journal/widgets/sidebars/options_sidebar.dart';
 import 'package:journal/widgets/sidebars/search_sidebar.dart';
 
 class DesktopSidebar extends StatefulWidget {
@@ -29,6 +30,10 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
         break;
       case 2:
         sidebarContent = const ImageGallerySidebar();
+        break;
+      case 3:
+        sidebarContent = const OptionsSidebar();
+        break;
       default:
         sidebarContent = const SizedBox.shrink();
     }
@@ -62,6 +67,12 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                           color: _selectedIndex == 2 ? Colors.blue : null),
                       tooltip: 'Images',
                       onPressed: () => setState(() => _selectedIndex = 2),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.settings,
+                          color: _selectedIndex == 3 ? Colors.blue : null),
+                      tooltip: 'Options',
+                      onPressed: () => setState(() => _selectedIndex = 3),
                     ),
                   ],
                 ),

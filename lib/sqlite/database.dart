@@ -399,4 +399,96 @@ class JournalDB {
       return row;
     }).toList();
   }
+
+  // Get stored theme mode string ('light', 'dark', or 'system')
+  Future<String> getThemeMode() async {
+    if (!_initialized) return 'system';
+    final rows = await _db.query('metadata', where: 'key = ?', whereArgs: ['theme_mode']);
+    if (rows.isEmpty) return 'system';
+    return rows.first['value'] as String;
+  }
+
+  // Save theme mode to metadata
+  Future<void> setThemeMode(String mode) async {
+    if (!_initialized) throw Exception('Database not initialized');
+    await _db.insert(
+      'metadata',
+      {'key': 'theme_mode', 'value': mode},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  // Change password: re-derives AES key and re-encrypts all entries and attachments
+  Future<void> changePassword(String newPassword) async {
+    if (!_initialized) throw Exception('Database not initialized');
+
+    final newSalt = _generateSalt();
+    final newIV = IV.fromSecureRandom(16);
+    final newKeyBytes = await _deriveKey(newPassword, newSalt);
+    final newKey = Key(newKeyBytes);
+    final newEncrypter = Encrypter(AES(newKey));
+
+    // Re-encrypt all entries
+    final entryRows = await _db.query('entries');
+    for (final row in entryRows) {
+      final date = row['date'] as String;
+      final plaintext = _encrypter.decrypt(
+        Encrypted.fromBase64(row['content'] as String),
+        iv: _iv,
+      );
+      final newEncrypted = newEncrypter.encrypt(plaintext, iv: newIV);
+      await _db.update(
+        'entries',
+        {'content': newEncrypted.base64},
+        where: 'date = ?',
+        whereArgs: [date],
+      );
+    }
+
+    // Re-encrypt all attachments
+    final attachmentRows = await _db.query('attachments');
+    for (final row in attachmentRows) {
+      final id = row['id'] as int;
+      final raw = row['data'];
+      final List<int> bytes;
+      if (raw is Uint8List) {
+        bytes = raw;
+      } else if (raw is List) {
+        bytes = raw.cast<int>();
+      } else {
+        continue;
+      }
+      final plainBytes = _decryptBytes(bytes);
+      final newEncryptedBytes =
+          newEncrypter.encryptBytes(plainBytes, iv: newIV).bytes;
+      await _db.update(
+        'attachments',
+        {'data': newEncryptedBytes},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+
+    // Swap in new crypto state
+    _iv = newIV;
+    _encrypter = newEncrypter;
+
+    // Update metadata: salt, iv, marker
+    await _db.insert(
+      'metadata',
+      {'key': 'salt', 'value': base64Encode(newSalt)},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    await _db.insert(
+      'metadata',
+      {'key': 'iv', 'value': newIV.base64},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    final newMarker = _encryptValue('verified');
+    await _db.insert(
+      'metadata',
+      {'key': 'marker', 'value': newMarker},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
 }

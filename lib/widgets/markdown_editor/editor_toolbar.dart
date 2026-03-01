@@ -186,27 +186,23 @@ class EditorToolbar extends StatelessWidget {
 
           return Row(
             mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
             spacing: 2,
             children: [
               Text(
                 date,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
               ),
               SizedBox(height: 28, child: VerticalDivider(thickness: 1)),
               TextButton(
-                style: ButtonStyle(
-                  backgroundColor: WidgetStateProperty.all(
-                    Colors.lightBlueAccent.withAlpha(70),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.lightBlueAccent.withAlpha(70),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(3),
                   ),
-                  shape: WidgetStateProperty.all(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  padding: WidgetStateProperty.all(
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 onPressed: onEditPress,
                 child: Text(

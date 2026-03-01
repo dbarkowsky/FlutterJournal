@@ -161,6 +161,13 @@ class JournalDB {
     return _initialized;
   }
 
+  /// Closes the database connection and resets the singleton so it can be reopened.
+  Future<void> close() async {
+    if (!_initialized) return;
+    await _db.close();
+    _initialized = false;
+  }
+
   // Derive a 256-bit AES key from a password and salt
   Future<Uint8List> _deriveKey(String password, Uint8List salt) async {
     const iterations = 100000; // high = more secure, slower

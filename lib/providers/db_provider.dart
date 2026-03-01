@@ -108,6 +108,18 @@ class DatabaseProvider extends AsyncNotifier<JournalDB> {
       state = AsyncValue.error(e, st);
     }
   }
+
+  /// Clears credentials and closes the DB. build() will then wait forever
+  /// (password guard), preventing an automatic re-login.
+  Future<void> logout() async {
+    final db = state.asData?.value;
+    _password = null;
+    _dbPath = null;
+    if (db != null) await db.close();
+    // Set to a never-resolving loading state rather than invalidating,
+    // so build() is not called again (which would re-open the DB).
+    state = AsyncValue.loading();
+  }
 }
 
 final entriesProvider = NotifierProvider<EntriesNotifier, AsyncValue<Map<String, String>>>(EntriesNotifier.new);

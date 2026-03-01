@@ -10,3 +10,12 @@ class SelectedImageIndexNotifier extends Notifier<int?> {
 
 final selectedImageIndexProvider =
 		NotifierProvider<SelectedImageIndexNotifier, int?>(SelectedImageIndexNotifier.new);
+
+class ImageListRefreshNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void refresh() => state++;
+}
+
+final imageListRefreshProvider =
+    NotifierProvider<ImageListRefreshNotifier, int>(ImageListRefreshNotifier.new);

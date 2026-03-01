@@ -5,15 +5,6 @@ import 'package:journal/providers/db_provider.dart';
 import 'package:journal/providers/image_selection_provider.dart';
 import 'package:journal/helpers/image_tools.dart';
 
-
-class ImageListRefreshNotifier extends Notifier<int> {
-  @override
-  int build() => 0;
-  void refresh() => state++;
-}
-
-final imageListRefreshProvider = NotifierProvider<ImageListRefreshNotifier, int>(ImageListRefreshNotifier.new);
-
 class ImageGallerySidebar extends ConsumerWidget {
   const ImageGallerySidebar({super.key});
 

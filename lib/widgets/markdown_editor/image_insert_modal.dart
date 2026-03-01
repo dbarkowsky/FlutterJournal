@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:journal/helpers/image_tools.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/providers/db_provider.dart';
+import 'package:journal/providers/image_selection_provider.dart';
 
 class ImageInsertModal extends ConsumerStatefulWidget {
   final void Function(String markdown) onInsert;
@@ -74,6 +75,7 @@ class _ImageInsertModalState extends ConsumerState<ImageInsertModal>
     final attachmentId = await pickAndInsertImage(context: context, db: db);
 
     if (attachmentId == null) return; // user cancelled picker
+    ref.read(imageListRefreshProvider.notifier).refresh();
     if (!context.mounted) return;
     Navigator.of(context).pop('attachment:$attachmentId');
   }

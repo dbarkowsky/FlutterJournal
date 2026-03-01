@@ -120,7 +120,10 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                     });
                   },
                   child: Markdown(
-                    data: controller.text,
+                    // This split/join ensures it renders line breaks correctly, since markdown requires two spaces at the end of a line for a line break
+                    data: controller.text
+                        .split('\n')
+                        .join('\n\n'),
                     selectable: true,
                     padding: const EdgeInsets.all(12),
                     styleSheet: MarkdownStyleSheet(

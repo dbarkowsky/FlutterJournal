@@ -68,13 +68,64 @@ Future<bool> replaceAttachmentImage({
   return false;
 }
 
-/// Deletes an attachment by id. Returns true if successful.
+/// Deletes an attachment by id after checking for referencing entries.
+/// If the image is in use, shows a warning dialog. If the user confirms,
+/// the image markdown is removed from all referencing entries before deleting.
+/// Returns true if deleted, false if cancelled or failed.
 Future<bool> deleteAttachmentImage({
   required BuildContext context,
   required JournalDB db,
   required int attachmentId,
 }) async {
   try {
+    // Collect dates into a plain list first so that subsequent writes
+    // don't interfere with the query result set.
+    final referencingDates =
+        await db.getEntryDatesReferencingAttachment(attachmentId);
+
+    if (referencingDates.isNotEmpty) {
+      if (!context.mounted) return false;
+      final count = referencingDates.length;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Image In Use'),
+          content: Text(
+            'This image is referenced in $count ${count == 1 ? 'entry' : 'entries'}. '
+            'Deleting it will remove the image from those entries. Continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(ctx).colorScheme.error,
+              ),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return false;
+
+      // Remove the image markdown from every referencing entry independently
+      // so a failure on one entry does not stop the rest.
+      for (final date in referencingDates) {
+        try {
+          await db.removeAttachmentFromEntry(date, attachmentId);
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not clean entry $date: $e')),
+            );
+          }
+        }
+      }
+    }
+
     await db.deleteAttachment(attachmentId);
     return true;
   } catch (e) {

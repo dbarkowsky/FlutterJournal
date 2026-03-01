@@ -387,6 +387,66 @@ class JournalDB {
     return 0;
   }
 
+  /// Returns the dates of all entries whose decrypted content references
+  /// [attachmentId] as `attachment:ID`.
+  ///
+  /// This scans actual entry content rather than relying solely on the
+  /// entries_attachments join table, so it catches entries that were saved
+  /// before the table was populated or that are otherwise out of sync.
+  ///
+  /// The boundary check (`(?:[)\s"]|$)`) ensures `attachment:2` does not
+  /// accidentally match inside `attachment:20`, etc.
+  Future<List<String>> getEntryDatesReferencingAttachment(int attachmentId) async {
+    if (!_initialized) throw Exception('Database not initialized');
+    final rows = await _db.query('entries', columns: ['date', 'content']);
+    final boundary = RegExp(
+      r'attachment:' + attachmentId.toString() + r'(?:[)\s"]|$)',
+    );
+    final List<String> dates = [];
+    for (final row in rows) {
+      final date = row['date'] as String;
+      try {
+        final content = _encrypter.decrypt(
+          Encrypted.fromBase64(row['content'] as String),
+          iv: _iv,
+        );
+        if (boundary.hasMatch(content)) {
+          dates.add(date);
+        }
+      } catch (_) {
+        // Skip entries that cannot be decrypted.
+      }
+    }
+    return dates;
+  }
+
+  /// Removes all `![...](attachment:ID)` markdown from the entry at [date]
+  /// for the given [attachmentId], then re-saves the entry.
+  ///
+  /// The regex is intentionally broad: it matches the URL portion
+  /// `attachment:ID` optionally followed by a title string, e.g.
+  ///   ![alt](attachment:5)
+  ///   ![alt|300](attachment:5)
+  ///   ![alt](attachment:5 "title")
+  Future<void> removeAttachmentFromEntry(String date, int attachmentId) async {
+    if (!_initialized) throw Exception('Database not initialized');
+    final content = await getEntry(date);
+    if (content == null) return;
+    // Matches ![any alt text](attachment:ID) with an optional title inside the parens.
+    final regex = RegExp(
+      r'!\[[^\]]*\]\(attachment:' + attachmentId.toString() + r'(?:\s[^)]*)?\)',
+    );
+    final cleaned = content.replaceAll(regex, '').trim();
+    // If nothing remains after cleaning, delete the entry rather than
+    // upserting an empty string (which can cause AES range errors and
+    // leaves a blank entry in the journal).
+    if (cleaned.isEmpty) {
+      await removeEntry(date);
+    } else {
+      await upsertEntry(date, cleaned);
+    }
+  }
+
   // Get attachment data by id
   Future<Map<String, dynamic>?> getAttachment(int id) async {
     if (!_initialized) throw Exception('Database not initialized');

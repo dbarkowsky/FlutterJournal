@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/providers/db_provider.dart';
+import 'package:journal/providers/editor_provider.dart';
 import 'package:journal/providers/image_selection_provider.dart';
 import 'package:journal/helpers/image_tools.dart';
 
@@ -74,6 +75,13 @@ class ImageGallerySidebar extends ConsumerWidget {
                   if (success) {
                     ref.read(imageListRefreshProvider.notifier).refresh();
                     ref.read(selectedImageIndexProvider.notifier).select(null);
+                    // Reload the active entry so the editor reflects any
+                    // image markdown that was removed.
+                    final editorDate = ref.read(editorProvider).date;
+                    final updatedContent = await ref
+                        .read(entriesProvider.notifier)
+                        .getEntryContent(editorDate);
+                    ref.read(editorProvider.notifier).setText(updatedContent);
                   }
                 },
               ),

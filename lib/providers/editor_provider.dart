@@ -30,6 +30,9 @@ class EditorStateNotifier extends Notifier<EditorState> {
 
   void setText(String text) {
     state.controller.text = text;
+    // Emit a new EditorState instance so widgets watching this provider
+    // rebuild and re-read controller.text (e.g. the view-mode Markdown widget).
+    state = EditorState(date: state.date, controller: state.controller);
   }
 
   void disposeController() {

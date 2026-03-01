@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:journal/helpers/image_tools.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/providers/db_provider.dart';
@@ -167,9 +168,30 @@ class _ImageInsertModalState extends ConsumerState<ImageInsertModal>
                 ],
               )
             else if (_tabController.index == 1)
-              TextField(
-                controller: _urlController,
-                decoration: const InputDecoration(labelText: 'Image URL'),
+              Column(
+                children: [
+                  TextField(
+                    controller: _urlController,
+                    decoration: const InputDecoration(labelText: 'Image URL'),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.content_paste, size: 16),
+                      label: const Text('Paste from clipboard'),
+                      onPressed: () async {
+                        final data = await Clipboard.getData(Clipboard.kTextPlain);
+                        if (data?.text != null) {
+                          _urlController.text = data!.text!;
+                          _urlController.selection = TextSelection.fromPosition(
+                            TextPosition(offset: _urlController.text.length),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
               )
             else
               _buildGalleryTab(),

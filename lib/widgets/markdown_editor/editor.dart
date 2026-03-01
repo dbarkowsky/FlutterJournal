@@ -120,10 +120,9 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                     });
                   },
                   child: Markdown(
-                    // This split/join ensures it renders line breaks correctly, since markdown requires two spaces at the end of a line for a line break
-                    data: controller.text
-                        .split('\n')
-                        .join('\n\n'),
+                    // Adds extra blank lines to preserve single line breaks, but
+                    // skips table rows so markdown table formatting is not broken.
+                    data: _processMarkdownLineBreaks(controller.text),
                     selectable: true,
                     padding: const EdgeInsets.all(12),
                     styleSheet: MarkdownStyleSheet(
@@ -215,6 +214,32 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
         ),
       ],
     );
+  }
+
+  /// Inserts extra blank lines between non-table lines so that single newlines
+  /// in the source are rendered as line breaks in the markdown preview.
+  /// Table rows (lines starting with `|`) are kept consecutive so that the
+  /// table structure is preserved.
+  String _processMarkdownLineBreaks(String text) {
+    final lines = text.split('\n');
+    final buffer = StringBuffer();
+    for (int i = 0; i < lines.length; i++) {
+      buffer.write(lines[i]);
+      buffer.write('\n');
+      if (i < lines.length - 1) {
+        final curr = lines[i].trimLeft();
+        final next = lines[i + 1].trimLeft();
+        // Don't add a blank line if either side is a table row/separator,
+        // or if either side is already blank (avoids triple newlines).
+        if (!curr.startsWith('|') &&
+            !next.startsWith('|') &&
+            curr.isNotEmpty &&
+            next.isNotEmpty) {
+          buffer.write('\n');
+        }
+      }
+    }
+    return buffer.toString();
   }
 
   @override

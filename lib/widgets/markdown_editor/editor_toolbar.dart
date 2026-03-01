@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'image_insert_modal.dart';
+import 'link_insert_modal.dart';
 
 class EditorToolbar extends StatelessWidget {
   final String date;
@@ -107,7 +108,34 @@ class EditorToolbar extends StatelessWidget {
             {
               'label': 'Insert Link',
               'icon': Icon(Icons.link),
-              'onTap': () => _insertMarkdown(controller, '[', '](url)'),
+              'onTap': () async {
+                final selection = controller.selection;
+                final selectedText =
+                    selection.isValid && selection.start != selection.end
+                        ? controller.text.substring(
+                            selection.start, selection.end)
+                        : '';
+                final result = await showDialog<Map<String, String>>(
+                  context: context,
+                  builder: (ctx) =>
+                      LinkInsertModal(initialLinkText: selectedText),
+                );
+                if (result != null) {
+                  final url = result['url']!;
+                  final text = result['text']!.isNotEmpty
+                      ? result['text']!
+                      : url;
+                  final linkMarkdown = '[$text]($url)';
+                  final curText = controller.text;
+                  final curSelection = controller.selection;
+                  final newText = curText.replaceRange(
+                    curSelection.start, curSelection.end, linkMarkdown);
+                  controller.text = newText;
+                  controller.selection = TextSelection.collapsed(
+                    offset: curSelection.start + linkMarkdown.length);
+                  await onSave(controller.text);
+                }
+              },
             },
             {
               'label': 'Insert Image',

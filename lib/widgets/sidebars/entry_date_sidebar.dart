@@ -8,14 +8,23 @@ class EntryDateSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const Calendar(),
-        const SizedBox(height: 10,),
-        const Expanded(
-          child: EntryDateAccordionList(),
-        ),
-      ],
+    return OrientationBuilder(
+      builder: (context, orientation) {
+        final isLandscape = orientation == Orientation.landscape;
+        return Column(
+          children: [
+            if (isLandscape) ...[
+              const Expanded(child: SingleChildScrollView(child: Calendar())),
+            ] else ...[
+              const Calendar(),
+              const SizedBox(height: 10),
+              const Expanded(
+                child: EntryDateAccordionList(),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

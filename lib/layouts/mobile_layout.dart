@@ -53,6 +53,9 @@ class _MobileDrawerState extends State<_MobileDrawer> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Drawer(
+      width: MediaQuery.of(context).orientation == Orientation.landscape
+          ? MediaQuery.of(context).size.width * 0.7
+          : null, // default width in portrait
       child: SafeArea(
         child: Column(
           children: [

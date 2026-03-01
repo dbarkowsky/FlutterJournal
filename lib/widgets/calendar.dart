@@ -70,11 +70,14 @@ class Calendar extends ConsumerWidget {
                       final hasEntry = entryDates.contains(
                         Formatters.date(day),
                       );
+                      final borderColor = Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black;
                       if (hasEntry){
                         return Container(
                           decoration: BoxDecoration(
                             color: Colors.lightBlueAccent.withAlpha(70),
-                            border: Border.all(color: Colors.black),
+                            border: Border.all(color: borderColor),
                             shape: BoxShape.rectangle,
                           ),
                           child: Center(child: Text('${day.day}')),
@@ -82,7 +85,7 @@ class Calendar extends ConsumerWidget {
                       }
                       return Container(
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black),
+                          border: Border.all(color: borderColor),
                           shape: BoxShape.rectangle,
                         ),
                         child: Center(child: Text('${day.day}')),

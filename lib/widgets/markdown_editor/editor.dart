@@ -19,6 +19,7 @@ class MarkdownEditor extends ConsumerStatefulWidget {
 class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
   bool _isEditMode = false;
   Timer? _debounce;
+  final FocusNode _editFocusNode = FocusNode();
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +99,7 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                   },
                   child: TextField(
                     controller: controller,
+                    focusNode: _editFocusNode,
                     textAlignVertical: TextAlignVertical.top,
                     maxLines: null,
                     expands: true,
@@ -116,7 +118,10 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
               : GestureDetector(
                   onDoubleTap: () {
                     setState(() {
-                      _isEditMode = !_isEditMode;
+                      _isEditMode = true;
+                    });
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _editFocusNode.requestFocus();
                     });
                   },
                   child: Markdown(
@@ -267,6 +272,7 @@ class _MarkdownEditorState extends ConsumerState<MarkdownEditor> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _editFocusNode.dispose();
     super.dispose();
   }
 }

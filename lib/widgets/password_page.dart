@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:journal/layouts/windows_layout.dart';
+import 'package:journal/layouts/desktop_layout.dart';
+import 'package:journal/layouts/mobile_layout.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:journal/providers/db_provider.dart';
 import 'package:journal/sqlite/database.dart';
@@ -270,8 +272,13 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
       next.whenOrNull(
         data: (db) {
           SchedulerBinding.instance.addPostFrameCallback((_) {
+            final isMobile = defaultTargetPlatform == TargetPlatform.android ||
+                defaultTargetPlatform == TargetPlatform.iOS;
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const DesktopLayout()),
+              MaterialPageRoute(
+                builder: (_) =>
+                    isMobile ? const MobileLayout() : const DesktopLayout(),
+              ),
             );
           });
         },

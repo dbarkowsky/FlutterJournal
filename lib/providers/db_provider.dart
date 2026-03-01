@@ -10,12 +10,15 @@ class EntriesNotifier extends Notifier<AsyncValue<Map<String, String>>> {
   @override
   AsyncValue<Map<String, String>> build() {
     final dbAsync = ref.watch(dbProvider);
-    db = dbAsync.maybeWhen(
-      data: (db) => db,
-      orElse: () => JournalDB(),
+    return dbAsync.when(
+      data: (openedDb) {
+        db = openedDb;
+        _loadEntries();
+        return const AsyncValue.loading();
+      },
+      loading: () => const AsyncValue.loading(),
+      error: (e, st) => AsyncValue.error(e, st),
     );
-    _loadEntries();
-    return const AsyncValue.loading();
   }
 
   Future<void> _loadEntries() async {

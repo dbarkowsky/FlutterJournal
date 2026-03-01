@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io' as io;
+import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:encrypt/encrypt.dart';
 import 'dart:convert';
@@ -18,11 +19,18 @@ class JournalDB {
   late IV _iv;
   bool _initialized = false;
 
+  DatabaseFactory _getPlatformFactory() {
+    if (io.Platform.isAndroid || io.Platform.isIOS) {
+      return sqflite.databaseFactory;
+    }
+    sqfliteFfiInit();
+    return databaseFactoryFfi;
+  }
+
   Future<void> createNewDatabase(String password, {String? dbPath}) async {
     if (_initialized) return;
 
-    sqfliteFfiInit();
-    final dbFactory = databaseFactoryFfi;
+    final dbFactory = _getPlatformFactory();
 
     String resolvedDbPath = dbPath ?? '';
     if (resolvedDbPath.isEmpty) {
@@ -98,8 +106,7 @@ class JournalDB {
   Future<void> openExistingDatabase(String password, {String? dbPath}) async {
     if (_initialized) return;
 
-    sqfliteFfiInit();
-    final dbFactory = databaseFactoryFfi;
+    final dbFactory = _getPlatformFactory();
 
     String resolvedDbPath = dbPath ?? '';
     if (resolvedDbPath.isEmpty) {

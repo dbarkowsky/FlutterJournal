@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatf
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/layouts/desktop_layout.dart';
 import 'package:journal/layouts/mobile_layout.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:journal/providers/db_provider.dart';
 import 'package:journal/sqlite/database.dart';
 import 'package:file_picker/file_picker.dart';
@@ -149,12 +148,17 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
                     final notifier = ref.read(dbProvider.notifier);
                     await notifier.createDatabase(password, dbPath: dbPath);
                     await LastDatabasePrefs.savePath(dbPath);
-                    setState(() {
-                      _dbPath = dbPath;
-                      _dbFileExists = true;
-                      _text = Text('Selected: $_dbPath', style: const TextStyle(fontSize: 12, color: Colors.green), overflow: TextOverflow.ellipsis);
-                    });
-                    Navigator.of(context).pop();
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop(); // close dialog
+                    // Navigate to journal — DB is open and ready
+                    final isMobile = defaultTargetPlatform == TargetPlatform.android ||
+                        defaultTargetPlatform == TargetPlatform.iOS;
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            isMobile ? const MobileLayout() : const DesktopLayout(),
+                      ),
+                    );
                   },
                   child: const Text('Create'),
                 ),
@@ -226,14 +230,30 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
     });
     final notifier = ref.read(dbProvider.notifier);
     await notifier.openDatabaseWithPassword(password, dbPath: _dbPath);
-    // If the provider is not loading after submit, reset loading state (safety net)
-    final state = ref.read(dbProvider);
-    if (!state.isLoading) {
-      setState(() {
-        _loading = false;
-      });
-    }
-    // Success/failure handled by listener
+    if (!mounted) return;
+    final dbState = ref.read(dbProvider);
+    dbState.when(
+      data: (_) {
+        final isMobile = defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) =>
+                isMobile ? const MobileLayout() : const DesktopLayout(),
+          ),
+        );
+      },
+      error: (e, st) {
+        setState(() {
+          _loading = false;
+          _passwordError = 'Invalid password';
+          _controller.clear();
+        });
+      },
+      loading: () {
+        setState(() => _loading = false);
+      },
+    );
   }
 
   Future<void> _chooseDatabase() async {
@@ -268,37 +288,27 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<JournalDB>>(dbProvider, (prev, next) {
-      next.whenOrNull(
-        data: (db) {
-          SchedulerBinding.instance.addPostFrameCallback((_) {
-            final isMobile = defaultTargetPlatform == TargetPlatform.android ||
-                defaultTargetPlatform == TargetPlatform.iOS;
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) =>
-                    isMobile ? const MobileLayout() : const DesktopLayout(),
-              ),
-            );
-          });
-        },
-        error: (e, st) {
-          setState(() {
-            _loading = false;
-            _passwordError = 'Invalid password';
-            _controller.clear();
-          });
-        },
-      );
-    });
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
-      body: Center(
-        child: SizedBox(
-          width: 350,
-          child: Column(
+      resizeToAvoidBottomInset: false,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          // Pad the bottom so content scrolls above the keyboard
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  MediaQuery.of(context).padding.bottom,
+            ),
+            child: Center(
+              child: SizedBox(
+                width: 350,
+                child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
@@ -360,9 +370,12 @@ class _PasswordPageState extends ConsumerState<PasswordPage> {
                 ],
               ),
             ],
-          ),
-        ),
-      ),
+          ),        // Column
+        ),          // SizedBox(width: 350)
+      ),            // Center
+    ),              // ConstrainedBox
+  ),                // SingleChildScrollView
+      ),            // SafeArea
     );
   }
 }

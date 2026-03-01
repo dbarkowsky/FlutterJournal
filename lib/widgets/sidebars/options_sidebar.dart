@@ -65,17 +65,17 @@ class _OptionsSidebarState extends ConsumerState<OptionsSidebar> {
             ButtonSegment(
               value: ThemeMode.light,
               icon: Icon(Icons.light_mode),
-              label: Text('Light'),
+              label: Text('Light', style: TextStyle(fontSize: 12)),
             ),
             ButtonSegment(
               value: ThemeMode.system,
               icon: Icon(Icons.brightness_auto),
-              label: Text('System'),
+              label: Text('Auto', style: TextStyle(fontSize: 12)),
             ),
             ButtonSegment(
               value: ThemeMode.dark,
               icon: Icon(Icons.dark_mode),
-              label: Text('Dark'),
+              label: Text('Dark', style: TextStyle(fontSize: 12)),
             ),
           ],
           selected: {themeMode},

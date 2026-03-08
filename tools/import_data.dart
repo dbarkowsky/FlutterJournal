@@ -26,6 +26,7 @@ import 'package:csv/csv.dart' show CsvDecoder;
 import 'package:cryptography/cryptography.dart';
 import 'package:encrypt/encrypt.dart';
 import 'package:html2md/html2md.dart' as html2md;
+import 'package:image/image.dart' as img;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // ---------------------------------------------------------------------------
@@ -82,6 +83,35 @@ Future<void> main(List<String> args) async {
 
   await db.close();
   print('\nDone.');
+}
+
+// ---------------------------------------------------------------------------
+// Image compression  (mirrors lib/helpers/image_tools.dart)
+// ---------------------------------------------------------------------------
+
+const int _maxImageDimension = 2048;
+const int _jpegQuality = 85;
+
+/// Resizes [bytes] so neither dimension exceeds [_maxImageDimension] and
+/// re-encodes at [_jpegQuality]. PNG inputs stay PNG; everything else becomes
+/// JPEG. Returns the original bytes if compression yields a larger result.
+Uint8List _compressImageBytes(Uint8List bytes, String mimeType) {
+  final decoded = img.decodeImage(bytes);
+  if (decoded == null) return bytes;
+
+  img.Image resized = decoded;
+  if (decoded.width > _maxImageDimension || decoded.height > _maxImageDimension) {
+    resized = decoded.width >= decoded.height
+        ? img.copyResize(decoded, width: _maxImageDimension)
+        : img.copyResize(decoded, height: _maxImageDimension);
+  }
+
+  final encoded = mimeType.toLowerCase() == 'image/png'
+      ? img.encodePng(resized)
+      : img.encodeJpg(resized, quality: _jpegQuality);
+
+  final result = Uint8List.fromList(encoded);
+  return result.length < bytes.length ? result : bytes;
 }
 
 // ---------------------------------------------------------------------------
@@ -174,11 +204,16 @@ Future<void> _importAttachments({
       continue;
     }
 
+    // Compress images using the same settings as the main app.
+    final processedBytes = mimeType.startsWith('image/')
+        ? _compressImageBytes(Uint8List.fromList(bytes), mimeType)
+        : Uint8List.fromList(bytes);
+
     prepared.add((
       oldId: oldId,
       createdAt: createdAt,
       mimeType: mimeType,
-      encryptedData: crypto.encryptBytes(bytes),
+      encryptedData: crypto.encryptBytes(processedBytes),
     ));
 
     if (prepared.length % 50 == 0) {

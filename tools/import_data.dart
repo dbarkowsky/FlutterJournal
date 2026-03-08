@@ -90,6 +90,23 @@ Future<void> main(List<String> args) async {
 
 const _chunkSize = 100;
 
+/// Ensures the attachments table has an `import_id` column (INTEGER, nullable,
+/// unique). Safe to call on both new and existing databases.
+Future<void> _ensureImportIdColumn(Database db) async {
+  // PRAGMA table_info returns one row per column.
+  final cols = await db.rawQuery('PRAGMA table_info(attachments)');
+  final hasColumn = cols.any((c) => c['name'] == 'import_id');
+  if (!hasColumn) {
+    await db.execute(
+      'ALTER TABLE attachments ADD COLUMN import_id INTEGER',
+    );
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_attachments_import_id '
+      'ON attachments (import_id) WHERE import_id IS NOT NULL',
+    );
+  }
+}
+
 Future<void> _importAttachments({
   required String csvPath,
   required Database db,
@@ -102,6 +119,9 @@ Future<void> _importAttachments({
     return;
   }
 
+  // Ensure the tracking column exists.
+  await _ensureImportIdColumn(db);
+
   final header = rows.first.map((e) => e.toString().trim()).toList();
   final dataRows = rows.skip(1).toList();
 
@@ -112,14 +132,33 @@ Future<void> _importAttachments({
 
   print('\nPreparing ${dataRows.length} attachment(s)...');
 
+  // Load old→new mappings from any previous run via the import_id column.
+  final existingRows = await db.query(
+    'attachments',
+    columns: ['id', 'import_id'],
+    where: 'import_id IS NOT NULL',
+  );
+  for (final row in existingRows) {
+    final oldId = row['import_id'] as int?;
+    final newId = row['id'] as int?;
+    if (oldId != null && newId != null) idMap[oldId] = newId;
+  }
+  if (idMap.isNotEmpty) {
+    print('  Resuming: ${idMap.length} attachment(s) already imported, skipping.');
+  }
+
   // Pre-process: decode + encrypt everything in memory first.
-  final prepared = <({int oldId, String createdAt, String mimeType, Uint8List encryptedData})>[];
+  final prepared =
+      <({int oldId, String createdAt, String mimeType, Uint8List encryptedData})>[];
   int skipped = 0;
 
   for (final row in dataRows) {
     if (row.length <= colData) { skipped++; continue; }
     final oldId = int.tryParse(row[colAttachmentId].toString().trim());
     if (oldId == null) { skipped++; continue; }
+
+    // Already imported in a previous run — reuse the existing mapping.
+    if (idMap.containsKey(oldId)) { skipped++; continue; }
 
     final createdAt = _normalizeDate(row[colCreated].toString().trim()) ??
         DateTime.now().toIso8601String();
@@ -148,7 +187,13 @@ Future<void> _importAttachments({
   }
   stdout.writeln('\r  Encrypted ${prepared.length} attachments.          ');
 
-  // Write in chunked transactions.
+  if (prepared.isEmpty) {
+    print('Attachments: nothing new to insert, $skipped skipped.');
+    return;
+  }
+
+  // Write in chunked transactions, storing import_id on each row so
+  // subsequent runs can detect already-imported attachments.
   print('  Writing to database in chunks of $_chunkSize...');
   int ok = 0;
 
@@ -160,6 +205,7 @@ Future<void> _importAttachments({
           'created_at': a.createdAt,
           'mime_type': a.mimeType,
           'data': a.encryptedData,
+          'import_id': a.oldId,
         });
         idMap[a.oldId] = newId;
       }

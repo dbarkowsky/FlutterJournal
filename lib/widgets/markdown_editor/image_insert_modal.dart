@@ -49,7 +49,7 @@ class _ImageInsertModalState extends ConsumerState<ImageInsertModal>
     if (!dbAsync.hasValue) return;
     setState(() => _galleryLoading = true);
     try {
-      final attachments = await dbAsync.value!.getAllAttachments();
+      final attachments = await dbAsync.value!.getAllAttachmentHeaders();
       if (mounted) {
         setState(() {
           _galleryAttachments = attachments;
@@ -106,12 +106,14 @@ class _ImageInsertModalState extends ConsumerState<ImageInsertModal>
         itemBuilder: (context, index) {
           final attachment = _galleryAttachments[index];
           final id = attachment['id'] as int;
-          final rawData = attachment['data'];
+          final rawThumb = attachment['thumbnail'];
           Uint8List? bytes;
-          if (rawData is Uint8List) {
-            bytes = rawData;
-          } else if (rawData is List<int>) {
-            bytes = Uint8List.fromList(rawData);
+          if (rawThumb is Uint8List) {
+            bytes = rawThumb;
+          } else if (rawThumb is List<int>) {
+            bytes = Uint8List.fromList(rawThumb);
+          } else if (rawThumb is List) {
+            bytes = Uint8List.fromList(rawThumb.cast<int>());
           }
 
           final isSelected = _selectedAttachmentId == id;

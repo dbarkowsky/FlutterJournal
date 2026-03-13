@@ -41,7 +41,7 @@ class ImageGallerySidebar extends ConsumerWidget {
                   final db = dbAsync.value!;
                   final selectedIndex = ref.read(selectedImageIndexProvider);
                   if (selectedIndex == null) return;
-                  final attachments = await db.getAllAttachments();
+                  final attachments = await db.getAllAttachmentHeaders();
                   if (selectedIndex < 0 || selectedIndex >= attachments.length) return;
                   final attachment = attachments[selectedIndex];
                   final attachmentId = attachment['id'];
@@ -63,7 +63,7 @@ class ImageGallerySidebar extends ConsumerWidget {
                   final db = dbAsync.value!;
                   final selectedIndex = ref.read(selectedImageIndexProvider);
                   if (selectedIndex == null) return;
-                  final attachments = await db.getAllAttachments();
+                  final attachments = await db.getAllAttachmentHeaders();
                   if (selectedIndex < 0 || selectedIndex >= attachments.length) return;
                   final attachment = attachments[selectedIndex];
                   final attachmentId = attachment['id'];
@@ -96,7 +96,7 @@ class ImageGallerySidebar extends ConsumerWidget {
               // Use refresh to trigger rebuild
               return FutureBuilder<List<Map<String, dynamic>>>(
                 key: ValueKey(refresh),
-                future: db.getAllAttachments(),
+                future: db.getAllAttachmentHeaders(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -115,7 +115,13 @@ class ImageGallerySidebar extends ConsumerWidget {
                     itemCount: attachments.length,
                     itemBuilder: (context, index) {
                       final attachment = attachments[index];
-                      final Uint8List? imageBytes = attachment['data'];
+                      final rawThumb = attachment['thumbnail'];
+                      Uint8List? imageBytes;
+                      if (rawThumb is Uint8List) {
+                        imageBytes = rawThumb;
+                      } else if (rawThumb is List) {
+                        imageBytes = Uint8List.fromList(rawThumb.cast<int>());
+                      }
                       if (imageBytes == null) {
                         return const Icon(Icons.broken_image);
                       }

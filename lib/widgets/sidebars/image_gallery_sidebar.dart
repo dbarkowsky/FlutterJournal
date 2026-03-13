@@ -5,6 +5,7 @@ import 'package:journal/providers/db_provider.dart';
 import 'package:journal/providers/editor_provider.dart';
 import 'package:journal/providers/image_selection_provider.dart';
 import 'package:journal/helpers/image_tools.dart';
+import 'package:journal/widgets/sidebars/image_tile.dart';
 
 class ImageGallerySidebar extends ConsumerWidget {
   const ImageGallerySidebar({super.key});
@@ -125,7 +126,14 @@ class ImageGallerySidebar extends ConsumerWidget {
                       if (imageBytes == null) {
                         return const Icon(Icons.broken_image);
                       }
-                      return _ImageTile(imageBytes: imageBytes, index: index);
+                      return ImageTile(
+                        imageBytes: imageBytes,
+                        index: index,
+                        attachmentId: attachment['id'] as int,
+                        createdAt: attachment['created_at'] as String? ?? '',
+                        updatedAt: attachment['updated_at'] as String?,
+                        mimeType: attachment['mime_type'] as String? ?? 'image/jpeg',
+                      );
                     },
                   );
                 },
@@ -138,35 +146,4 @@ class ImageGallerySidebar extends ConsumerWidget {
   }
 }
 
-class _ImageTile extends ConsumerWidget {
-  final Uint8List imageBytes;
-  final int index;
 
-  const _ImageTile({required this.imageBytes, required this.index});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selectedIndex = ref.watch(selectedImageIndexProvider);
-    final isSelected = selectedIndex == index;
-
-    return GestureDetector(
-      onTap: () => ref.read(selectedImageIndexProvider.notifier).select(index),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.transparent,
-            width: 3,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(5),
-          child: Image.memory(
-            imageBytes,
-            fit: BoxFit.cover,
-          ),
-        ),
-      ),
-    );
-  }
-}

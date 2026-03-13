@@ -59,6 +59,7 @@ class JournalDB {
       CREATE TABLE IF NOT EXISTS attachments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         created_at TEXT NOT NULL,
+        updated_at TEXT,
         mime_type TEXT NOT NULL,
         data BLOB NOT NULL,
         thumbnail BLOB
@@ -166,6 +167,8 @@ class JournalDB {
     await _migrateAttachmentsEncryption();
     // Add thumbnail column and backfill thumbnails for existing attachments
     await _migrateThumbnails();
+    // Add updated_at column if not present
+    await _migrateUpdatedAt();
   }
 
   bool isInitialized(){
@@ -324,6 +327,15 @@ class JournalDB {
     );
   }
 
+  /// Adds the `updated_at` column to attachments if it doesn't exist yet.
+  Future<void> _migrateUpdatedAt() async {
+    final tableInfo = await _db.rawQuery('PRAGMA table_info(attachments)');
+    final hasUpdatedAt = tableInfo.any((col) => col['name'] == 'updated_at');
+    if (!hasUpdatedAt) {
+      await _db.execute('ALTER TABLE attachments ADD COLUMN updated_at TEXT');
+    }
+  }
+
   // Helper: extract attachment IDs from markdown (expects ![...](attachment:ID) or similar)
   Set<int> _extractAttachmentIds(String content) {
     final regex = RegExp(r'attachment:(\d+)', caseSensitive: false);
@@ -436,6 +448,7 @@ class JournalDB {
       'attachments',
       {
         'mime_type': mimeType,
+        'updated_at': DateTime.now().toIso8601String(),
         'data': _encryptBytes(data),
         if (thumbnail != null) 'thumbnail': _encryptBytes(thumbnail),
       },
@@ -553,7 +566,7 @@ class JournalDB {
     if (!_initialized) throw Exception('Database not initialized');
     final rows = await _db.query(
       'attachments',
-      columns: ['id', 'mime_type', 'created_at', 'thumbnail'],
+      columns: ['id', 'mime_type', 'created_at', 'updated_at', 'thumbnail'],
     );
     return rows.map((r) {
       final row = Map<String, dynamic>.from(r);

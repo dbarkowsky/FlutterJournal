@@ -4,102 +4,115 @@ import 'package:journal/providers/db_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:journal/providers/editor_provider.dart';
 
-class EntryDateAccordionList extends ConsumerStatefulWidget {
+// Derived provider: groups entry dates into year > month > [days].
+// Recomputes only when the entries map itself changes, not on UI rebuilds.
+final _groupedEntriesProvider = Provider<Map<int, Map<int, List<int>>>>((ref) {
+  final entries = ref.watch(entriesProvider).asData?.value ?? {};
+  final Map<int, Map<int, List<int>>> grouped = {};
+  for (final dateStr in entries.keys) {
+    final date = DateTime.parse(dateStr);
+    grouped.putIfAbsent(date.year, () => {});
+    grouped[date.year]!.putIfAbsent(date.month, () => []);
+    grouped[date.year]![date.month]!.add(date.day);
+  }
+  return grouped;
+});
+
+class EntryDateAccordionList extends ConsumerWidget {
   const EntryDateAccordionList({super.key});
 
   @override
-  ConsumerState<EntryDateAccordionList> createState() => _EntryDateAccordionListState();
-}
-
-class _EntryDateAccordionListState extends ConsumerState<EntryDateAccordionList> {
-  final Map<int, bool> _expandedYears = {};
-  final Map<String, bool> _expandedMonths = {};
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final entriesAsync = ref.watch(entriesProvider);
     return entriesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, st) => Center(child: Text('DB Error: $e')),
-      data: (entries) {
-        final dates = entries.keys.toList();
-        if (dates.isEmpty) {
+      data: (_) {
+        final grouped = ref.watch(_groupedEntriesProvider);
+        if (grouped.isEmpty) {
           return const Center(child: Text('No entries'));
         }
-        // Parse and group dates
-        final Map<int, Map<int, List<int>>> grouped = {};
-        for (final dateStr in dates) {
-          final date = DateTime.parse(dateStr);
-          grouped.putIfAbsent(date.year, () => {});
-          grouped[date.year]!.putIfAbsent(date.month, () => []);
-          grouped[date.year]![date.month]!.add(date.day);
-        }
         final years = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
-        return ListView(
-          children: [
-            ...years.map((year) {
-              final months = grouped[year]!.keys.toList()..sort((a, b) => b.compareTo(a));
-              return ExpansionPanelList(
-                expansionCallback: (i, isOpen) {
-                  setState(() {
-                    _expandedYears[year] = !(_expandedYears[year] ?? false);
-                  });
-                },
-                expandedHeaderPadding: EdgeInsets.zero,
-                elevation: 1,
-                children: [
-                  ExpansionPanel(
-                    headerBuilder: (context, isOpen) => ListTile(title: Text(year.toString())),
-                    isExpanded: _expandedYears[year] ?? false,
-                    canTapOnHeader: true,
-                    body: Column(
-                      children: [
-                        ...months.map((month) {
-                          final days = grouped[year]![month]!;
-                          final monthKey = '$year-$month';
-                          return ExpansionPanelList(
-                            expansionCallback: (j, isOpen) {
-                              setState(() {
-                                _expandedMonths[monthKey] = !(_expandedMonths[monthKey] ?? false);
-                              });
-                            },
-                            expandedHeaderPadding: EdgeInsets.zero,
-                            elevation: 0,
-                            children: [
-                              ExpansionPanel(
-                                headerBuilder: (context, isOpen) => ListTile(title: Text(DateFormat.MMMM().format(DateTime(year, month))),
-                                contentPadding: const EdgeInsets.only(left: 25),),
-                                isExpanded: _expandedMonths[monthKey] ?? false,
-                                canTapOnHeader: true,
-                                body: Column(
-                                  children: [
-                                    ...days.map((day) {
-                                      final date = DateTime(year, month, day);
-                                      return ListTile(
-                                        title: Text(DateFormat('d - EEEE').format(date)),
-                                        contentPadding: const EdgeInsets.only(left: 40),
-                                        dense: true,
-                                        onTap: () {
-                                          // Set the date in the editorProvider
-                                          ref.read(editorProvider.notifier).setDate(date);
-                                        },
-                                      );
-                                    }),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            }),
-          ],
+        // ListView.builder virtualizes the year list so only visible items
+        // are built, and each year is an independent subtree.
+        return ListView.builder(
+          itemCount: years.length,
+          itemBuilder: (context, index) {
+            final year = years[index];
+            return _YearTile(year: year, monthMap: grouped[year]!);
+          },
         );
       },
+    );
+  }
+}
+
+// ── Year tile ────────────────────────────────────────────────────────────────
+
+class _YearTile extends StatelessWidget {
+  final int year;
+  final Map<int, List<int>> monthMap;
+
+  const _YearTile({required this.year, required this.monthMap});
+
+  @override
+  Widget build(BuildContext context) {
+    final months = monthMap.keys.toList()..sort((a, b) => a.compareTo(b));
+    return ExpansionTile(
+      // Each ExpansionTile manages its own expanded state — no setState needed.
+      title: Text(year.toString()),
+      children: [
+        for (final month in months)
+          _MonthTile(year: year, month: month, days: monthMap[month]!),
+      ],
+    );
+  }
+}
+
+// ── Month tile ───────────────────────────────────────────────────────────────
+
+class _MonthTile extends ConsumerWidget {
+  final int year;
+  final int month;
+  final List<int> days;
+
+  const _MonthTile({
+    required this.year,
+    required this.month,
+    required this.days,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sortedDays = [...days]..sort((a, b) => a.compareTo(b));
+    return ExpansionTile(
+      title: Text(DateFormat.MMMM().format(DateTime(year, month))),
+      tilePadding: const EdgeInsets.only(left: 25),
+      children: [
+        for (final day in sortedDays)
+          _DayTile(year: year, month: month, day: day),
+      ],
+    );
+  }
+}
+
+// ── Day tile ─────────────────────────────────────────────────────────────────
+
+class _DayTile extends ConsumerWidget {
+  final int year;
+  final int month;
+  final int day;
+
+  const _DayTile({required this.year, required this.month, required this.day});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final date = DateTime(year, month, day);
+    return ListTile(
+      title: Text(DateFormat('d - EEEE').format(date)),
+      contentPadding: const EdgeInsets.only(left: 40),
+      dense: true,
+      onTap: () => ref.read(editorProvider.notifier).setDate(date),
     );
   }
 }

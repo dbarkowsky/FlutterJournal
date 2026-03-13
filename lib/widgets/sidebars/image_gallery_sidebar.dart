@@ -14,80 +14,83 @@ class ImageGallerySidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
   final dbAsync = ref.watch(dbProvider);
   final refresh = ref.watch(imageListRefreshProvider);
+  final multiSelect = ref.watch(multiSelectProvider);
 
   return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.add_photo_alternate),
-                tooltip: 'Add Image',
-                onPressed: () async {
-                  if (!dbAsync.hasValue) return;
-                  final db = dbAsync.value!;
-                  final id = await pickAndInsertImage(context: context, db: db);
-                  if (id != null) {
-                    ref.read(imageListRefreshProvider.notifier).refresh();
-                  }
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.swap_horiz),
-                tooltip: 'Replace Image',
-                onPressed: () async {
-                  if (!dbAsync.hasValue) return;
-                  final db = dbAsync.value!;
-                  final selectedIndex = ref.read(selectedImageIndexProvider);
-                  if (selectedIndex == null) return;
-                  final attachments = await db.getAllAttachmentHeaders();
-                  if (selectedIndex < 0 || selectedIndex >= attachments.length) return;
-                  final attachment = attachments[selectedIndex];
-                  final attachmentId = attachment['id'];
-                  final success = await replaceAttachmentImage(
-                    context: context,
-                    db: db,
-                    attachmentId: attachmentId,
-                  );
-                  if (success) {
-                    ref.read(imageListRefreshProvider.notifier).refresh();
-                  }
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete),
-                tooltip: 'Delete Image',
-                onPressed: () async {
-                  if (!dbAsync.hasValue) return;
-                  final db = dbAsync.value!;
-                  final selectedIndex = ref.read(selectedImageIndexProvider);
-                  if (selectedIndex == null) return;
-                  final attachments = await db.getAllAttachmentHeaders();
-                  if (selectedIndex < 0 || selectedIndex >= attachments.length) return;
-                  final attachment = attachments[selectedIndex];
-                  final attachmentId = attachment['id'];
-                  final success = await deleteAttachmentImage(
-                    context: context,
-                    db: db,
-                    attachmentId: attachmentId,
-                  );
-                  if (success) {
-                    ref.read(imageListRefreshProvider.notifier).refresh();
-                    ref.read(selectedImageIndexProvider.notifier).select(null);
-                    // Reload the active entry so the editor reflects any
-                    // image markdown that was removed.
-                    final editorDate = ref.read(editorProvider).date;
-                    final updatedContent = await ref
-                        .read(entriesProvider.notifier)
-                        .getEntryContent(editorDate);
-                    ref.read(editorProvider.notifier).setText(updatedContent);
-                  }
-                },
-              ),
-            ],
-          ),
+          child: multiSelect.isActive
+              ? _MultiSelectToolbar(multiSelect: multiSelect)
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.add_photo_alternate),
+                      tooltip: 'Add Image',
+                      onPressed: () async {
+                        if (!dbAsync.hasValue) return;
+                        final db = dbAsync.value!;
+                        final id = await pickAndInsertImage(context: context, db: db);
+                        if (id != null) {
+                          ref.read(imageListRefreshProvider.notifier).refresh();
+                        }
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.swap_horiz),
+                      tooltip: 'Replace Image',
+                      onPressed: () async {
+                        if (!dbAsync.hasValue) return;
+                        final db = dbAsync.value!;
+                        final selectedIndex = ref.read(selectedImageIndexProvider);
+                        if (selectedIndex == null) return;
+                        final attachments = await db.getAllAttachmentHeaders();
+                        if (selectedIndex < 0 || selectedIndex >= attachments.length) return;
+                        final attachment = attachments[selectedIndex];
+                        final attachmentId = attachment['id'];
+                        final success = await replaceAttachmentImage(
+                          context: context,
+                          db: db,
+                          attachmentId: attachmentId,
+                        );
+                        if (success) {
+                          ref.read(imageListRefreshProvider.notifier).refresh();
+                        }
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      tooltip: 'Delete Image',
+                      onPressed: () async {
+                        if (!dbAsync.hasValue) return;
+                        final db = dbAsync.value!;
+                        final selectedIndex = ref.read(selectedImageIndexProvider);
+                        if (selectedIndex == null) return;
+                        final attachments = await db.getAllAttachmentHeaders();
+                        if (selectedIndex < 0 || selectedIndex >= attachments.length) return;
+                        final attachment = attachments[selectedIndex];
+                        final attachmentId = attachment['id'];
+                        final success = await deleteAttachmentImage(
+                          context: context,
+                          db: db,
+                          attachmentId: attachmentId,
+                        );
+                        if (success) {
+                          ref.read(imageListRefreshProvider.notifier).refresh();
+                          ref.read(selectedImageIndexProvider.notifier).select(null);
+                          // Reload the active entry so the editor reflects any
+                          // image markdown that was removed.
+                          final editorDate = ref.read(editorProvider).date;
+                          final updatedContent = await ref
+                              .read(entriesProvider.notifier)
+                              .getEntryContent(editorDate);
+                          ref.read(editorProvider.notifier).setText(updatedContent);
+                        }
+                      },
+                    ),
+                  ],
+                ),
         ),
         Expanded(
           child: dbAsync.when(
@@ -146,4 +149,59 @@ class ImageGallerySidebar extends ConsumerWidget {
   }
 }
 
+/// Toolbar shown while multi-select mode is active.
+class _MultiSelectToolbar extends ConsumerWidget {
+  final MultiSelectState multiSelect;
 
+  const _MultiSelectToolbar({required this.multiSelect});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = multiSelect.selectedIds.length;
+
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.deselect),
+          tooltip: 'Deselect All',
+          onPressed: () {
+            ref.read(multiSelectProvider.notifier).deselectAll();
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete),
+          tooltip: 'Delete Selected',
+          onPressed: count == 0
+              ? null
+              : () async {
+                  final dbAsync = ref.read(dbProvider);
+                  if (!dbAsync.hasValue) return;
+                  final db = dbAsync.value!;
+                  final ids = multiSelect.selectedIds.toList();
+                  final success = await deleteMultipleAttachmentImages(
+                    context: context,
+                    db: db,
+                    attachmentIds: ids,
+                  );
+                  if (success) {
+                    ref.read(multiSelectProvider.notifier).deselectAll();
+                    ref.read(selectedImageIndexProvider.notifier).select(null);
+                    ref.read(imageListRefreshProvider.notifier).refresh();
+                    // Reload the active entry to reflect removed image markdown.
+                    final editorDate = ref.read(editorProvider).date;
+                    final updatedContent = await ref
+                        .read(entriesProvider.notifier)
+                        .getEntryContent(editorDate);
+                    ref.read(editorProvider.notifier).setText(updatedContent);
+                  }
+                },
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '$count selected',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+}

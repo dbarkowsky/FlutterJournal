@@ -33,18 +33,31 @@ class _ImageTileState extends ConsumerState<ImageTile> {
   static const _doubleTapWindow = Duration(milliseconds: 250);
 
   void _handleTap() {
+    final multiSelect = ref.read(multiSelectProvider);
+
+    if (multiSelect.isActive) {
+      // In multi-select mode, tapping simply toggles this item.
+      ref.read(multiSelectProvider.notifier).toggle(widget.attachmentId);
+      return;
+    }
+
+    // Normal mode: single tap selects, double tap opens viewer.
     if (_doubleTapTimer != null && _doubleTapTimer!.isActive) {
-      // Second tap within window — treat as double tap
       _doubleTapTimer!.cancel();
       _doubleTapTimer = null;
       _openViewer();
     } else {
-      // First tap — select immediately, then wait for possible second tap
       ref.read(selectedImageIndexProvider.notifier).select(widget.index);
       _doubleTapTimer = Timer(_doubleTapWindow, () {
         _doubleTapTimer = null;
       });
     }
+  }
+
+  void _handleLongPress() {
+    // Long press always enters multi-select mode and selects this tile.
+    ref.read(selectedImageIndexProvider.notifier).select(null);
+    ref.read(multiSelectProvider.notifier).enterMode(widget.attachmentId);
   }
 
   void _openViewer() {
@@ -73,22 +86,55 @@ class _ImageTileState extends ConsumerState<ImageTile> {
     final isSelected = ref.watch(
       selectedImageIndexProvider.select((idx) => idx == widget.index),
     );
+    final multiSelectState = ref.watch(multiSelectProvider);
+    final isMultiSelected =
+        multiSelectState.isActive &&
+        multiSelectState.selectedIds.contains(widget.attachmentId);
+
+    final highlighted = isMultiSelected || (!multiSelectState.isActive && isSelected);
 
     return GestureDetector(
       onTap: _handleTap,
+      onLongPress: _handleLongPress,
       child: Container(
         decoration: BoxDecoration(
           border: Border.all(
-            color: isSelected ? Colors.blue : Colors.transparent,
+            color: highlighted ? Colors.blue : Colors.transparent,
             width: 3,
           ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(5),
-          child: Image.memory(
-            widget.imageBytes,
-            fit: BoxFit.cover,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.memory(
+                widget.imageBytes,
+                fit: BoxFit.cover,
+              ),
+              if (multiSelectState.isActive)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isMultiSelected
+                          ? Colors.blue
+                          : Colors.black45,
+                      shape: BoxShape.circle,
+                    ),
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(
+                      isMultiSelected
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

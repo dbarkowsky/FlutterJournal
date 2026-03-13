@@ -156,6 +156,69 @@ Future<bool> deleteAttachmentImage({
   }
 }
 
+/// Deletes multiple attachments after a single confirmation dialog.
+/// References to each image are removed from entries before deletion.
+/// Returns true if the user confirmed and deletions were attempted.
+Future<bool> deleteMultipleAttachmentImages({
+  required BuildContext context,
+  required JournalDB db,
+  required List<int> attachmentIds,
+}) async {
+  if (attachmentIds.isEmpty) return false;
+
+  final count = attachmentIds.length;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Delete Images'),
+      content: Text(
+        'Delete $count selected ${count == 1 ? 'image' : 'images'}? '
+        'Any images referenced in entries will have those references removed.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: Theme.of(ctx).colorScheme.error,
+          ),
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return false;
+
+  for (final id in attachmentIds) {
+    try {
+      final referencingDates =
+          await db.getEntryDatesReferencingAttachment(id);
+      for (final date in referencingDates) {
+        try {
+          await db.removeAttachmentFromEntry(date, id);
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not clean entry $date: $e')),
+            );
+          }
+        }
+      }
+      await db.deleteAttachment(id);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete image $id: $e')),
+        );
+      }
+    }
+  }
+  return true;
+}
+
 /// Picks an image file and inserts it into the attachments table.
 /// Returns the attachment id if successful, or null if cancelled/failed.
 Future<int?> pickAndInsertImage({

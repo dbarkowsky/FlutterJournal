@@ -8,6 +8,8 @@ import 'package:journal/sqlite/database.dart';
 
 const int _maxImageDimension = 2048;
 const int _jpegQuality = 85;
+const int _thumbnailDimension = 200;
+const int _thumbnailJpegQuality = 75;
 
 /// Resizes [bytes] so neither dimension exceeds [_maxImageDimension] and
 /// re-encodes at [_jpegQuality]. PNG inputs stay PNG; everything else becomes
@@ -32,6 +34,20 @@ Future<Uint8List> compressImageBytes(Uint8List bytes, String mimeType) async {
   return result.length < bytes.length ? result : bytes;
 }
 
+/// Generates a small thumbnail from [bytes], capped at [_thumbnailDimension]
+/// on the longest side. Always encoded as JPEG for compact storage.
+/// Returns null if the image cannot be decoded.
+Future<Uint8List?> generateThumbnailBytes(Uint8List bytes) async {
+  final decoded = img.decodeImage(bytes);
+  if (decoded == null) return null;
+
+  final thumb = decoded.width >= decoded.height
+      ? img.copyResize(decoded, width: _thumbnailDimension)
+      : img.copyResize(decoded, height: _thumbnailDimension);
+
+  return Uint8List.fromList(img.encodeJpg(thumb, quality: _thumbnailJpegQuality));
+}
+
 /// Replaces the image data for an existing attachment.
 /// Returns true if successful, false otherwise.
 Future<bool> replaceAttachmentImage({
@@ -49,11 +65,13 @@ Future<bool> replaceAttachmentImage({
     final bytes = await file.readAsBytes();
     final mimeType = 'image/${pickedPath.split('.').last}';
     final compressedBytes = await compressImageBytes(bytes, mimeType);
+    final thumbnail = await generateThumbnailBytes(compressedBytes);
     try {
       await db.updateAttachment(
         id: attachmentId,
         mimeType: mimeType,
         data: compressedBytes,
+        thumbnail: thumbnail,
       );
       return true;
     } catch (e) {
@@ -138,6 +156,69 @@ Future<bool> deleteAttachmentImage({
   }
 }
 
+/// Deletes multiple attachments after a single confirmation dialog.
+/// References to each image are removed from entries before deletion.
+/// Returns true if the user confirmed and deletions were attempted.
+Future<bool> deleteMultipleAttachmentImages({
+  required BuildContext context,
+  required JournalDB db,
+  required List<int> attachmentIds,
+}) async {
+  if (attachmentIds.isEmpty) return false;
+
+  final count = attachmentIds.length;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Delete Images'),
+      content: Text(
+        'Delete $count selected ${count == 1 ? 'image' : 'images'}? '
+        'Any images referenced in entries will have those references removed.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: Theme.of(ctx).colorScheme.error,
+          ),
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return false;
+
+  for (final id in attachmentIds) {
+    try {
+      final referencingDates =
+          await db.getEntryDatesReferencingAttachment(id);
+      for (final date in referencingDates) {
+        try {
+          await db.removeAttachmentFromEntry(date, id);
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not clean entry $date: $e')),
+            );
+          }
+        }
+      }
+      await db.deleteAttachment(id);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete image $id: $e')),
+        );
+      }
+    }
+  }
+  return true;
+}
+
 /// Picks an image file and inserts it into the attachments table.
 /// Returns the attachment id if successful, or null if cancelled/failed.
 Future<int?> pickAndInsertImage({
@@ -154,10 +235,12 @@ Future<int?> pickAndInsertImage({
     final bytes = await file.readAsBytes();
     final mimeType = 'image/${p.extension(pickedPath).replaceAll('.', '')}';
     final compressedBytes = await compressImageBytes(bytes, mimeType);
+    final thumbnail = await generateThumbnailBytes(compressedBytes);
     try {
       final attachmentId = await db.insertAttachment(
         mimeType: mimeType,
         data: compressedBytes,
+        thumbnail: thumbnail,
       );
       return attachmentId;
     } catch (e) {

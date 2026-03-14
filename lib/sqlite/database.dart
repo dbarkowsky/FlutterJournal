@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
+import 'package:image/image.dart' as img;
 
 class JournalDB {
   static final JournalDB _instance = JournalDB._internal();
@@ -58,8 +59,10 @@ class JournalDB {
       CREATE TABLE IF NOT EXISTS attachments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         created_at TEXT NOT NULL,
+        updated_at TEXT,
         mime_type TEXT NOT NULL,
-        data BLOB NOT NULL
+        data BLOB NOT NULL,
+        thumbnail BLOB
       )
     ''');
 
@@ -162,6 +165,10 @@ class JournalDB {
 
     // Migrate unencrypted attachment blobs to encrypted, if not done yet
     await _migrateAttachmentsEncryption();
+    // Add thumbnail column and backfill thumbnails for existing attachments
+    await _migrateThumbnails();
+    // Add updated_at column if not present
+    await _migrateUpdatedAt();
   }
 
   bool isInitialized(){
@@ -262,6 +269,73 @@ class JournalDB {
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
+  /// Adds the `thumbnail` column if it doesn't exist, then generates and
+  /// stores encrypted thumbnails for any attachment that doesn't have one.
+  Future<void> _migrateThumbnails() async {
+    // 1. Add the column if the schema predates it.
+    final tableInfo = await _db.rawQuery('PRAGMA table_info(attachments)');
+    final hasThumb = tableInfo.any((col) => col['name'] == 'thumbnail');
+    if (!hasThumb) {
+      await _db.execute('ALTER TABLE attachments ADD COLUMN thumbnail BLOB');
+    }
+
+    // 2. Back-fill thumbnails for rows that don't have one yet.
+    final flagRow = await _db.query(
+      'metadata',
+      where: 'key = ?',
+      whereArgs: ['thumbnails_generated_v1'],
+    );
+    if (flagRow.isNotEmpty) return; // already done
+
+    const thumbDim = 200;
+    final rows = await _db.query('attachments', columns: ['id', 'data', 'thumbnail']);
+    for (final row in rows) {
+      if (row['thumbnail'] != null) continue;
+      final id = row['id'] as int;
+      final raw = row['data'];
+      final List<int> encryptedBytes;
+      if (raw is Uint8List) {
+        encryptedBytes = raw;
+      } else if (raw is List) {
+        encryptedBytes = raw.cast<int>();
+      } else {
+        continue;
+      }
+      try {
+        final plainBytes = _decryptBytes(encryptedBytes);
+        final decoded = img.decodeImage(plainBytes);
+        if (decoded == null) continue;
+        final resized = decoded.width >= decoded.height
+            ? img.copyResize(decoded, width: thumbDim)
+            : img.copyResize(decoded, height: thumbDim);
+        final thumbBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 75));
+        await _db.update(
+          'attachments',
+          {'thumbnail': _encryptBytes(thumbBytes)},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      } catch (_) {
+        // Skip images that can't be processed.
+      }
+    }
+
+    await _db.insert(
+      'metadata',
+      {'key': 'thumbnails_generated_v1', 'value': '1'},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  /// Adds the `updated_at` column to attachments if it doesn't exist yet.
+  Future<void> _migrateUpdatedAt() async {
+    final tableInfo = await _db.rawQuery('PRAGMA table_info(attachments)');
+    final hasUpdatedAt = tableInfo.any((col) => col['name'] == 'updated_at');
+    if (!hasUpdatedAt) {
+      await _db.execute('ALTER TABLE attachments ADD COLUMN updated_at TEXT');
+    }
+  }
+
   // Helper: extract attachment IDs from markdown (expects ![...](attachment:ID) or similar)
   Set<int> _extractAttachmentIds(String content) {
     final regex = RegExp(r'attachment:(\d+)', caseSensitive: false);
@@ -344,6 +418,7 @@ class JournalDB {
     required String mimeType,
     required List<int> data,
     String? createdAt,
+    List<int>? thumbnail,
   }) async {
     if (!_initialized) throw Exception('Database not initialized');
     final now = createdAt ?? DateTime.now().toIso8601String();
@@ -351,6 +426,7 @@ class JournalDB {
       'created_at': now,
       'mime_type': mimeType,
       'data': _encryptBytes(data),
+      if (thumbnail != null) 'thumbnail': _encryptBytes(thumbnail),
     });
   }
 
@@ -365,13 +441,16 @@ class JournalDB {
     required int id,
     required String mimeType,
     required List<int> data,
+    List<int>? thumbnail,
   }) async {
     if (!_initialized) throw Exception('Database not initialized');
     await _db.update(
       'attachments',
       {
         'mime_type': mimeType,
+        'updated_at': DateTime.now().toIso8601String(),
         'data': _encryptBytes(data),
+        if (thumbnail != null) 'thumbnail': _encryptBytes(thumbnail),
       },
       where: 'id = ?',
       whereArgs: [id],
@@ -470,6 +549,33 @@ class JournalDB {
     return rows.map((r) {
       final row = Map<String, dynamic>.from(r);
       row['data'] = _decryptBytes((row['data'] as List).cast<int>());
+      final rawThumb = row['thumbnail'];
+      if (rawThumb != null) {
+        row['thumbnail'] = _decryptBytes(
+          rawThumb is Uint8List ? rawThumb : (rawThumb as List).cast<int>(),
+        );
+      }
+      return row;
+    }).toList();
+  }
+
+  /// Returns lightweight attachment metadata (id, mime_type, created_at) plus
+  /// the decrypted thumbnail — without loading the full image blob. Use this
+  /// for gallery / picker views where you only need the preview.
+  Future<List<Map<String, dynamic>>> getAllAttachmentHeaders() async {
+    if (!_initialized) throw Exception('Database not initialized');
+    final rows = await _db.query(
+      'attachments',
+      columns: ['id', 'mime_type', 'created_at', 'updated_at', 'thumbnail'],
+    );
+    return rows.map((r) {
+      final row = Map<String, dynamic>.from(r);
+      final rawThumb = row['thumbnail'];
+      if (rawThumb != null) {
+        row['thumbnail'] = _decryptBytes(
+          rawThumb is Uint8List ? rawThumb : (rawThumb as List).cast<int>(),
+        );
+      }
       return row;
     }).toList();
   }
@@ -519,28 +625,38 @@ class JournalDB {
       );
     }
 
-    // Re-encrypt all attachments
+    // Re-encrypt all attachments (data + thumbnail)
     final attachmentRows = await _db.query('attachments');
     for (final row in attachmentRows) {
       final id = row['id'] as int;
-      final raw = row['data'];
-      final List<int> bytes;
-      if (raw is Uint8List) {
-        bytes = raw;
-      } else if (raw is List) {
-        bytes = raw.cast<int>();
-      } else {
-        continue;
+      final Map<String, dynamic> updates = {};
+
+      final rawData = row['data'];
+      if (rawData != null) {
+        final List<int> dataBytes = rawData is Uint8List
+            ? rawData
+            : (rawData as List).cast<int>();
+        final plainBytes = _decryptBytes(dataBytes);
+        updates['data'] = newEncrypter.encryptBytes(plainBytes, iv: newIV).bytes;
       }
-      final plainBytes = _decryptBytes(bytes);
-      final newEncryptedBytes =
-          newEncrypter.encryptBytes(plainBytes, iv: newIV).bytes;
-      await _db.update(
-        'attachments',
-        {'data': newEncryptedBytes},
-        where: 'id = ?',
-        whereArgs: [id],
-      );
+
+      final rawThumb = row['thumbnail'];
+      if (rawThumb != null) {
+        final List<int> thumbBytes = rawThumb is Uint8List
+            ? rawThumb
+            : (rawThumb as List).cast<int>();
+        final plainThumb = _decryptBytes(thumbBytes);
+        updates['thumbnail'] = newEncrypter.encryptBytes(plainThumb, iv: newIV).bytes;
+      }
+
+      if (updates.isNotEmpty) {
+        await _db.update(
+          'attachments',
+          updates,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
     }
 
     // Swap in new crypto state

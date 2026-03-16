@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/layouts/desktop_layout.dart';
 import 'package:journal/layouts/mobile_layout.dart';
 import 'package:journal/providers/db_provider.dart';
-import 'package:journal/sqlite/database.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:journal/helpers/last_db_prefs.dart';
 import 'dart:io';

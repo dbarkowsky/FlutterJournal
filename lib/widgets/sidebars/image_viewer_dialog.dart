@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:journal/sqlite/database.dart';
 
 class ImageViewerDialog extends StatefulWidget {
@@ -62,6 +65,58 @@ class _ImageViewerDialogState extends State<ImageViewerDialog> {
     }
   }
 
+  String _extensionForMime(String mime) {
+    switch (mime.toLowerCase()) {
+      case 'image/png':
+        return '.png';
+      case 'image/gif':
+        return '.gif';
+      case 'image/webp':
+        return '.webp';
+      case 'image/bmp':
+        return '.bmp';
+      case 'image/tiff':
+        return '.tiff';
+      case 'image/jpeg':
+      default:
+        return '.jpg';
+    }
+  }
+
+  Future<void> _saveImage() async {
+    if (_imageData == null) return;
+
+    // Build filename from upload date
+    final ext = _extensionForMime(widget.mimeType);
+    String baseName;
+    try {
+      final dt = DateTime.parse(widget.createdAt).toLocal();
+      baseName =
+          'journal_image_'
+          '${dt.year}${dt.month.toString().padLeft(2, '0')}${dt.day.toString().padLeft(2, '0')}_'
+          '${dt.hour.toString().padLeft(2, '0')}${dt.minute.toString().padLeft(2, '0')}${dt.second.toString().padLeft(2, '0')}';
+    } catch (_) {
+      baseName = 'journal_image_${DateTime.now().millisecondsSinceEpoch}';
+    }
+
+    // Prefer Downloads folder; fall back to Documents
+    Directory? saveDir;
+    try {
+      saveDir = await getDownloadsDirectory();
+    } catch (_) {}
+    saveDir ??= await getApplicationDocumentsDirectory();
+
+    final filePath = p.join(saveDir.path, '$baseName$ext');
+    final file = File(filePath);
+    await file.writeAsBytes(_imageData!);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved to $filePath')),
+      );
+    }
+  }
+
   String _formatDate(String? isoString) {
     if (isoString == null || isoString.isEmpty) return 'Unknown';
     try {
@@ -117,6 +172,10 @@ class _ImageViewerDialogState extends State<ImageViewerDialog> {
             ),
             OverflowBar(
               children: [
+                TextButton(
+                  onPressed: _imageData == null ? null : _saveImage,
+                  child: const Text('Save Image'),
+                ),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Close'),

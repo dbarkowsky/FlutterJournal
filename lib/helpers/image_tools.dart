@@ -6,10 +6,10 @@ import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 import 'package:journal/sqlite/database.dart';
 
-const int _maxImageDimension = 2048;
-const int _jpegQuality = 85;
+const int _maxImageDimension = 1600;
+const int _jpegQuality = 75;
 const int _thumbnailDimension = 200;
-const int _thumbnailJpegQuality = 75;
+const int _thumbnailJpegQuality = 50;
 
 /// Resizes [bytes] so neither dimension exceeds [_maxImageDimension] and
 /// re-encodes at [_jpegQuality]. PNG inputs stay PNG; everything else becomes
@@ -145,6 +145,7 @@ Future<bool> deleteAttachmentImage({
     }
 
     await db.deleteAttachment(attachmentId);
+    await db.vacuum();
     return true;
   } catch (e) {
     if (context.mounted) {
@@ -216,6 +217,8 @@ Future<bool> deleteMultipleAttachmentImages({
       }
     }
   }
+  // Vacuum once after all deletions to reclaim BLOB space in a single pass.
+  await db.vacuum();
   return true;
 }
 

@@ -436,6 +436,13 @@ class JournalDB {
     await _db.delete('attachments', where: 'id = ?', whereArgs: [id]);
   }
 
+  /// Reclaim disk space freed by deleted rows. Call once after one or more
+  /// deletions rather than after every individual delete in a loop.
+  Future<void> vacuum() async {
+    if (!_initialized) throw Exception('Database not initialized');
+    await _db.execute('VACUUM');
+  }
+
   /// Update an existing attachment's data and mime type by id
   Future<void> updateAttachment({
     required int id,

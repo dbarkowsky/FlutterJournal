@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:journal/providers/db_provider.dart';
 import 'package:journal/providers/image_selection_provider.dart';
@@ -34,10 +34,32 @@ class _ImageTileState extends ConsumerState<ImageTile> {
 
   void _handleTap() {
     final multiSelect = ref.read(multiSelectProvider);
+    final ctrlHeld = HardwareKeyboard.instance.isControlPressed;
+    final shiftHeld = HardwareKeyboard.instance.isShiftPressed;
 
-    if (multiSelect.isActive) {
-      // In multi-select mode, tapping simply toggles this item.
-      ref.read(multiSelectProvider.notifier).toggle(widget.attachmentId);
+    if (shiftHeld) {
+      if (multiSelect.isActive) {
+        // Shift-click: extend selection from anchor to here.
+        final orderedIds = ref.read(attachmentOrderProvider);
+        ref.read(multiSelectProvider.notifier).selectRange(widget.index, orderedIds);
+      } else {
+        // Shift-click with no active multi-select: just enter multi-select on
+        // this tile (anchor set here; next shift-click will range from it).
+        ref.read(selectedImageIndexProvider.notifier).select(null);
+        ref.read(multiSelectProvider.notifier).enterMode(widget.attachmentId, widget.index);
+      }
+      return;
+    }
+
+    if (multiSelect.isActive || ctrlHeld) {
+      // In multi-select mode (or Ctrl held on desktop), tapping toggles this item.
+      if (!multiSelect.isActive) {
+        // Ctrl-click enters multi-select and selects this tile.
+        ref.read(selectedImageIndexProvider.notifier).select(null);
+        ref.read(multiSelectProvider.notifier).enterMode(widget.attachmentId, widget.index);
+      } else {
+        ref.read(multiSelectProvider.notifier).toggle(widget.attachmentId, widget.index);
+      }
       return;
     }
 
@@ -57,7 +79,7 @@ class _ImageTileState extends ConsumerState<ImageTile> {
   void _handleLongPress() {
     // Long press always enters multi-select mode and selects this tile.
     ref.read(selectedImageIndexProvider.notifier).select(null);
-    ref.read(multiSelectProvider.notifier).enterMode(widget.attachmentId);
+    ref.read(multiSelectProvider.notifier).enterMode(widget.attachmentId, widget.index);
   }
 
   void _openViewer() {
@@ -83,15 +105,16 @@ class _ImageTileState extends ConsumerState<ImageTile> {
 
   @override
   Widget build(BuildContext context) {
+    // Fine-grained selectors: only rebuild this tile when ITS OWN state changes.
     final isSelected = ref.watch(
       selectedImageIndexProvider.select((idx) => idx == widget.index),
     );
-    final multiSelectState = ref.watch(multiSelectProvider);
-    final isMultiSelected =
-        multiSelectState.isActive &&
-        multiSelectState.selectedIds.contains(widget.attachmentId);
+    final isMultiActive = ref.watch(multiSelectProvider.select((s) => s.isActive));
+    final isMultiSelected = ref.watch(
+      multiSelectProvider.select((s) => s.selectedIds.contains(widget.attachmentId)),
+    );
 
-    final highlighted = isMultiSelected || (!multiSelectState.isActive && isSelected);
+    final highlighted = isMultiSelected || (!isMultiActive && isSelected);
 
     return GestureDetector(
       onTap: _handleTap,
@@ -113,7 +136,7 @@ class _ImageTileState extends ConsumerState<ImageTile> {
                 widget.imageBytes,
                 fit: BoxFit.cover,
               ),
-              if (multiSelectState.isActive)
+              if (isMultiActive)
                 Positioned(
                   top: 4,
                   right: 4,

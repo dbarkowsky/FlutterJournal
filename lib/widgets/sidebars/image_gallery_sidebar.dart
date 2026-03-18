@@ -7,21 +7,36 @@ import 'package:journal/providers/image_selection_provider.dart';
 import 'package:journal/helpers/image_tools.dart';
 import 'package:journal/widgets/sidebars/image_tile.dart';
 
-class ImageGallerySidebar extends ConsumerWidget {
+class ImageGallerySidebar extends ConsumerStatefulWidget {
   const ImageGallerySidebar({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ImageGallerySidebar> createState() => _ImageGallerySidebarState();
+}
+
+class _ImageGallerySidebarState extends ConsumerState<ImageGallerySidebar> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
   final dbAsync = ref.watch(dbProvider);
   final refresh = ref.watch(imageListRefreshProvider);
-  final multiSelect = ref.watch(multiSelectProvider);
+  // Only watch whether multi-select mode is active — not the full selection set.
+  // _MultiSelectToolbar watches the full state for itself.
+  final isMultiSelectActive = ref.watch(multiSelectProvider.select((s) => s.isActive));
 
   return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: multiSelect.isActive
-              ? _MultiSelectToolbar(multiSelect: multiSelect)
+          child: isMultiSelectActive
+              ? const _MultiSelectToolbar()
               : Row(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
@@ -109,7 +124,14 @@ class ImageGallerySidebar extends ConsumerWidget {
                     return const Center(child: Text('No images found.'));
                   }
                   final attachments = snapshot.data!;
+                  // Keep the order provider in sync so tiles can resolve ranges.
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    ref.read(attachmentOrderProvider.notifier).setOrder(
+                      attachments.map((a) => a['id'] as int).toList(),
+                    );
+                  });
                   return GridView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.all(8),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
@@ -151,12 +173,11 @@ class ImageGallerySidebar extends ConsumerWidget {
 
 /// Toolbar shown while multi-select mode is active.
 class _MultiSelectToolbar extends ConsumerWidget {
-  final MultiSelectState multiSelect;
-
-  const _MultiSelectToolbar({required this.multiSelect});
+  const _MultiSelectToolbar();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final multiSelect = ref.watch(multiSelectProvider);
     final count = multiSelect.selectedIds.length;
 
     return Row(

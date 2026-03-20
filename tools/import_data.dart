@@ -89,8 +89,8 @@ Future<void> main(List<String> args) async {
 // Image compression  (mirrors lib/helpers/image_tools.dart)
 // ---------------------------------------------------------------------------
 
-const int _maxImageDimension = 2048;
-const int _jpegQuality = 85;
+const int _maxImageDimension = 1600;
+const int _jpegQuality = 75;
 
 /// Resizes [bytes] so neither dimension exceeds [_maxImageDimension] and
 /// re-encodes at [_jpegQuality]. PNG inputs stay PNG; everything else becomes

@@ -349,15 +349,38 @@ Future<void> _importEntries({
 
 String _htmlToMarkdown(String html) {
   if (html.trim().isEmpty) return '';
-  return html2md.convert(
+  String md = html2md.convert(
     html,
     styleOptions: {
       'headingStyle': 'atx',
       'codeBlockStyle': 'fenced',
+      'emDelimiter': '*',
     },
     // Keep the attachment: scheme as-is; html2md treats it like any other URL.
     ignore: ['script', 'style'],
   ).trim();
+
+  // html2md can produce `*text *` or `**text **` when the source HTML has
+  // trailing/leading whitespace inside the tag (e.g. <i>text </i>). Move that
+  // whitespace outside the emphasis/bold markers so word spacing is preserved.
+  String moveSpacesOutside(String inner, String marker) {
+    final trimmed = inner.trim();
+    if (trimmed.isEmpty) return '$marker$inner$marker';
+    final leading = inner.substring(0, inner.length - inner.trimLeft().length);
+    final trailing = inner.substring(inner.trimRight().length);
+    return '$leading$marker$trimmed$marker$trailing';
+  }
+
+  md = md.replaceAllMapped(
+    RegExp(r'\*\*([\s\S]+?)\*\*'),
+    (m) => moveSpacesOutside(m.group(1)!, '**'),
+  );
+  md = md.replaceAllMapped(
+    RegExp(r'(?<!\*)\*([^*\n]+)\*(?!\*)'),
+    (m) => moveSpacesOutside(m.group(1)!, '*'),
+  );
+
+  return md;
 }
 
 /// Rewrites `attach://OLD_ID` occurrences inside HTML attribute values

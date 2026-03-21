@@ -71,12 +71,12 @@ If you want to build the product from source, there are Flutter commands that wi
 
 ## Images
 
-![lock screen](https://github.com/dbarkowsky/WingJournal/tree/main/docs/images/lock-screen.png)
+![lock screen](https://github.com/dbarkowsky/WingJournal/blob/main/docs/images/lock-screen.png?raw=true)
 
-![entry](https://github.com/dbarkowsky/WingJournal/tree/main/docs/images/entry.png)
+![entry](https://github.com/dbarkowsky/WingJournal/blob/main/docs/images/entry.png?raw=true)
 
-![search](https://github.com/dbarkowsky/WingJournal/tree/main/docs/images/search.png)
+![search](https://github.com/dbarkowsky/WingJournal/blob/main/docs/images/search.png?raw=true)
 
-![images](https://github.com/dbarkowsky/WingJournal/tree/main/docs/images/images.png)
+![images](https://github.com/dbarkowsky/WingJournal/blob/main/docs/images/images.png?raw=true)
 
-![options](https://github.com/dbarkowsky/WingJournal/tree/main/docs/images/options.png)
+![options](https://github.com/dbarkowsky/WingJournal/blob/main/docs/images/options.png?raw=true)

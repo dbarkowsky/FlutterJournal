@@ -1,6 +1,6 @@
 {
-    "name": "journal",
-    "short_name": "journal",
+    "name": "Wing Journal",
+    "short_name": "Wing Journal",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

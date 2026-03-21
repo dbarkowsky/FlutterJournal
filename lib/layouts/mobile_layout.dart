@@ -12,7 +12,7 @@ class MobileLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Journal'),
+        title: const Text('Wing Journal'),
       ),
       drawer: const _MobileDrawer(),
       body: const MarkdownEditor(),
